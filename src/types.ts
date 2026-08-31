@@ -53,3 +53,84 @@ export interface ChatMessage {
   text: string;
   time: string;
 }
+
+export interface ApiContractorProfile {
+  _id: string;
+  userId: string;
+  fullName: string;
+  businessName?: string;
+  phone?: string;
+  email?: string;
+  primaryTrade: string;
+  specializations: string[];
+  experienceYears: number;
+  licenseNo?: string;
+  city?: string;
+  serviceAreas?: string[];
+  teamSize?: number;
+  about?: string;
+  kycStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  kycDocumentType?: string;
+  kycDocumentNumber?: string;
+  kycDocumentUrls?: string[];
+  portfolioImages?: string[];
+  isAvailable: boolean;
+  averageRating: number;
+  totalReviews: number;
+  completedProjects: number;
+  onboardingCompleted: boolean;
+  isVerified?: boolean;
+}
+
+export interface ApiBidItem {
+  _id: string;
+  projectId: string | { _id: string; title: string; category?: string; budget?: number; timeline?: string; location?: string; status?: string };
+  contractorId: string | { _id: string; fullName: string; specialization?: string; averageRating?: number; isVerified?: boolean; phone?: string; completedProjects?: number };
+  amount: number;
+  estimatedDays: number;
+  materialsIncluded?: boolean;
+  warranty?: string;
+  proposalMessage?: string;
+  availabilityDate?: string;
+  status: 'SUBMITTED' | 'ACCEPTED' | 'REJECTED' | 'PENDING';
+  matchScore?: number;
+  contractor?: {
+    _id: string;
+    name: string;
+    trade?: string;
+    rating?: number;
+    totalReviews?: number;
+    experience?: string;
+    experienceYears?: number;
+    completedProjects?: number;
+    isVerified?: boolean;
+    kycStatus?: string;
+    city?: string;
+    about?: string;
+  };
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface ApiNotificationItem {
+  _id: string;
+  recipientId: string;
+  senderId?: string;
+  title: string;
+  message: string;
+  type: string;
+  projectId?: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface ApiReviewItem {
+  _id: string;
+  projectId: string;
+  clientId: { _id: string; fullName: string };
+  contractorId: string;
+  rating: number;
+  reviewText?: string;
+  tags?: string[];
+  createdAt: string;
+}
