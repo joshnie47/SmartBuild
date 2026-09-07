@@ -13,6 +13,7 @@ export interface IUser extends Document {
   role: UserRole;
   status: UserStatus;
   // Contractor-specific profile fields
+  profileImage?: string;
   specialization?: string;
   averageRating?: number;
   completedProjects?: number;
@@ -74,6 +75,7 @@ const UserSchema = new Schema<IUser>(
       default: 'ACTIVE',
     },
     // Contractor-specific profile fields
+    profileImage: { type: String, trim: true, default: '' },
     specialization: { type: String, trim: true },
     averageRating: { type: Number, default: 0, min: 0, max: 5 },
     completedProjects: { type: Number, default: 0, min: 0 },

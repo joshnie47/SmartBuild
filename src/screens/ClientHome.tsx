@@ -200,27 +200,43 @@ export function ClientHome({
               contractors.slice(0, 6).map((c) => (
                 <div
                   key={c._id}
-                  className="w-48 shrink-0 rounded-xl bg-gray-50 border border-gray-100 p-4 transition-shadow hover:shadow-soft"
+                  className="w-52 shrink-0 rounded-xl bg-gray-50 border border-gray-100 p-4 transition-shadow hover:shadow-soft"
                 >
-                  <Avatar alt={c.fullName} size="lg" />
+                  <Avatar src={c.profileImage} alt={c.fullName} size="lg" />
                   <div className="mt-2 flex items-center gap-1">
                     <span className="text-sm font-semibold text-navy-700 truncate">
                       {c.fullName}
                     </span>
                     {c.isVerified && (
-                      <BadgeCheck className="h-4 w-4 text-amber-500 shrink-0" />
+                      <BadgeCheck className="h-4 w-4 text-emerald-500 shrink-0" />
                     )}
                   </div>
                   <p className="text-xs text-gray-500 truncate">
                     {c.specialization || 'General Works'}
                   </p>
+
+                  {/* Portfolio Authenticity Pill */}
+                  {c.portfolioAuthenticity && c.portfolioAuthenticity.status !== 'NO_PHOTOS' && (
+                    <div className="mt-1.5">
+                      {c.portfolioAuthenticity.status === 'ALL_REAL' ? (
+                        <span className="inline-flex items-center gap-1 rounded bg-emerald-100/90 px-1.5 py-0.5 text-[9px] font-bold text-emerald-800">
+                          🛡️ 100% Real Work Verified
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded bg-purple-100/90 px-1.5 py-0.5 text-[9px] font-bold text-purple-800">
+                          ✨ Real + AI Concept
+                        </span>
+                      )}
+                    </div>
+                  )}
+
                   <div className="mt-1.5 flex items-center gap-1">
                     <StarRating rating={c.averageRating || 5} />
                     <span className="text-xs text-gray-500">
                       ({c.completedProjects || 0})
                     </span>
                   </div>
-                  <div className="mt-2 flex items-center gap-1 text-xs text-gray-500">
+                  <div className="mt-1.5 flex items-center gap-1 text-xs text-gray-500">
                     <MapPin className="h-3 w-3 text-amber-500" />{' '}
                     {c.city || 'Tamil Nadu'}
                   </div>

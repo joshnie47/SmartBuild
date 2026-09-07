@@ -1,6 +1,31 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export type KYCStatus = 'PENDING' | 'VERIFIED' | 'REJECTED';
+export type AiClassification = 'LIKELY_REAL' | 'LIKELY_AI_GENERATED' | 'UNCERTAIN';
+export type PortfolioAuthenticity = 'LIKELY_REAL' | 'LIKELY_AI' | 'UNCERTAIN' | 'AI_GENERATED';
+
+export interface IPortfolioItem {
+  imageUrl: string;
+  originalFilename: string;
+  mimeType: string;
+  fileSize: number;
+  width?: number;
+  height?: number;
+  aiClassification: AiClassification;
+  aiConfidence: number; // 0 to 1
+  aiProvider: string;
+  aiModel: string;
+  aiDetectionTimestamp: Date;
+  contractorConfirmedAI: boolean;
+  analysisReason?: string;
+  detectedFeatures?: string[];
+  // Backward compatibility fields
+  url?: string;
+  authenticity?: PortfolioAuthenticity;
+  confidence?: number;
+  isAiMarked?: boolean;
+  uploadedAt?: Date;
+}
 
 export interface IContractorProfile extends Document {
   userId: mongoose.Types.ObjectId;
@@ -8,6 +33,7 @@ export interface IContractorProfile extends Document {
   phone?: string;
   email?: string;
   businessName?: string;
+  profileImage?: string;
   primaryTrade: string;
   specializations: string[];
   experienceYears: number;
@@ -21,6 +47,7 @@ export interface IContractorProfile extends Document {
   kycDocumentNumber?: string;
   kycDocumentUrls: string[];
   portfolioImages: string[];
+  portfolioItems: IPortfolioItem[];
   isAvailable: boolean;
   averageRating: number;
   totalReviews: number;
@@ -54,6 +81,11 @@ const ContractorProfileSchema = new Schema<IContractorProfile>(
       lowercase: true,
     },
     businessName: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    profileImage: {
       type: String,
       trim: true,
       default: '',
@@ -117,6 +149,38 @@ const ContractorProfileSchema = new Schema<IContractorProfile>(
     },
     portfolioImages: {
       type: [String],
+      default: [],
+    },
+    portfolioItems: {
+      type: [
+        {
+          imageUrl: { type: String, required: true },
+          originalFilename: { type: String, default: 'portfolio-image.jpg' },
+          mimeType: { type: String, default: 'image/jpeg' },
+          fileSize: { type: Number, default: 0 },
+          width: { type: Number },
+          height: { type: Number },
+          aiClassification: {
+            type: String,
+            enum: ['LIKELY_REAL', 'LIKELY_AI_GENERATED', 'UNCERTAIN'],
+            default: 'LIKELY_REAL',
+            index: true,
+          },
+          aiConfidence: { type: Number, default: 0.05 },
+          aiProvider: { type: String, default: 'Groq Vision Forensic Engine' },
+          aiModel: { type: String, default: 'qwen/qwen3.8-27b' },
+          aiDetectionTimestamp: { type: Date, default: Date.now },
+          contractorConfirmedAI: { type: Boolean, default: false },
+          analysisReason: { type: String, default: '' },
+          detectedFeatures: { type: [String], default: [] },
+          // Backward compatibility fields
+          url: { type: String },
+          authenticity: { type: String },
+          confidence: { type: Number },
+          isAiMarked: { type: Boolean },
+          uploadedAt: { type: Date, default: Date.now },
+        },
+      ],
       default: [],
     },
     isAvailable: {

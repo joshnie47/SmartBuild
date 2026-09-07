@@ -15,6 +15,67 @@ export type ScreenId =
   | 'admin-dashboard'
   | 'chat';
 
+export type AiClassification = 'LIKELY_REAL' | 'LIKELY_AI_GENERATED' | 'UNCERTAIN';
+export type PortfolioAuthenticity = 'LIKELY_REAL' | 'LIKELY_AI' | 'UNCERTAIN' | 'AI_GENERATED';
+
+export interface PortfolioItem {
+  imageUrl?: string;
+  originalFilename?: string;
+  mimeType?: string;
+  fileSize?: number;
+  width?: number;
+  height?: number;
+  aiClassification?: AiClassification;
+  aiConfidence?: number;
+  contractorConfirmedAI?: boolean;
+  analysisReason?: string;
+  detectedFeatures?: string[];
+  url?: string;
+  authenticity?: PortfolioAuthenticity;
+  confidence?: number;
+  isAiMarked?: boolean;
+  uploadedAt?: string;
+}
+
+export type UploadProcessingStatus =
+  | 'SELECTED'
+  | 'UPLOADING'
+  | 'ANALYZING'
+  | 'LIKELY_REAL'
+  | 'LIKELY_AI_GENERATED'
+  | 'UNCERTAIN'
+  | 'SAVED'
+  | 'FAILED';
+
+export interface UploadBatchItem {
+  id: string;
+  file?: File;
+  previewUrl: string;
+  originalFilename: string;
+  fileSize: number;
+  status: UploadProcessingStatus;
+  progress: number;
+  errorMessage?: string;
+  analysis?: {
+    aiClassification: AiClassification;
+    aiConfidence: number;
+    authenticityScore?: number;
+    analysisReason?: string;
+    detectedFeatures?: string[];
+  };
+  portfolioItem?: PortfolioItem;
+}
+
+export interface PortfolioAuthenticitySummary {
+  status: 'ALL_REAL' | 'MIXED_AI' | 'ALL_AI' | 'NO_PHOTOS';
+  label: string;
+  realPercentage: number;
+  realCount: number;
+  aiCount: number;
+  uncertainCount?: number;
+  totalCount: number;
+}
+
 export interface Contractor {
   id: string;
   name: string;
@@ -28,6 +89,9 @@ export interface Contractor {
   matchScore: number;
   quotedPrice: number;
   timeline: string;
+  portfolioImages?: string[];
+  portfolioItems?: PortfolioItem[];
+  portfolioAuthenticity?: PortfolioAuthenticitySummary;
 }
 
 export interface Project {
@@ -59,6 +123,7 @@ export interface ApiContractorProfile {
   userId: string;
   fullName: string;
   businessName?: string;
+  profileImage?: string;
   phone?: string;
   email?: string;
   primaryTrade: string;
@@ -74,6 +139,7 @@ export interface ApiContractorProfile {
   kycDocumentNumber?: string;
   kycDocumentUrls?: string[];
   portfolioImages?: string[];
+  portfolioItems?: PortfolioItem[];
   isAvailable: boolean;
   averageRating: number;
   totalReviews: number;

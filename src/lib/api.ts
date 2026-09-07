@@ -1,9 +1,12 @@
 import { getToken } from './auth';
-import type {
+export type {
   ApiContractorProfile,
   ApiBidItem,
   ApiNotificationItem,
   ApiReviewItem,
+  PortfolioItem,
+  PortfolioAuthenticity,
+  PortfolioAuthenticitySummary,
 } from '../types';
 
 const BASE = 'http://localhost:5000/api';
@@ -60,6 +63,7 @@ export interface ApiProject {
 export interface ApiContractor {
   _id: string;
   fullName: string;
+  profileImage?: string;
   specialization?: string;
   averageRating: number;
   completedProjects: number;
@@ -67,10 +71,12 @@ export interface ApiContractor {
   isAvailable: boolean;
   city?: string;
   experienceYears?: number;
+  portfolioAuthenticity?: PortfolioAuthenticitySummary;
 }
 
 export interface ContractorDashboardStats {
   fullName: string;
+  profileImage?: string;
   kycStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
   isVerified: boolean;
   isAvailable: boolean;
@@ -85,11 +91,23 @@ export interface ContractorDashboardStats {
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const { headers: extraHeaders, ...restOptions } = options ?? {};
-  const res = await fetch(`${BASE}${path}`, {
-    ...restOptions,
-    headers: { 'Content-Type': 'application/json', ...extraHeaders },
-  });
-  const data = await res.json();
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      ...restOptions,
+      headers: { 'Content-Type': 'application/json', ...extraHeaders },
+    });
+  } catch (err: unknown) {
+    throw new Error('Unable to connect to the backend server (http://localhost:5000). Please ensure the backend server is running.');
+  }
+
+  let data: any;
+  try {
+    data = await res.json();
+  } catch {
+    throw new Error(`Server returned invalid response (${res.status} ${res.statusText})`);
+  }
+
   if (!res.ok) throw new Error(data.message || 'Something went wrong.');
   return data as T;
 }
@@ -258,6 +276,13 @@ export async function apiGetProjectStats(): Promise<{ activeProjects: number }> 
   });
 }
 
+export async function apiGetProjectRecommendations(projectId: string): Promise<{
+  project: ApiProject;
+  recommendations: any[];
+}> {
+  return request<{ project: ApiProject; recommendations: any[] }>(`/projects/${projectId}/recommendations`);
+}
+
 export async function apiSelectContractor(
   projectId: string,
   contractorIdOrBidId: string,
@@ -324,6 +349,145 @@ export async function apiVerifyProjectCompletion(projectId: string): Promise<{ p
 }
 
 // ── Contractor APIs ──────────────────────────────────────────────────────────
+export async function apiAnalyzePortfolioImage(file: File): Promise<{
+  message: string;
+  saved: boolean;
+  requiresConfirmation: boolean;
+  confirmationType?: 'AI_WARNING' | 'UNCERTAIN_WARNING';
+  item: PortfolioItem;
+  analysis: {
+    aiClassification: 'LIKELY_REAL' | 'LIKELY_AI_GENERATED' | 'UNCERTAIN';
+    aiConfidence: number;
+    authenticityScore: number;
+    analysisReason: string;
+    detectedFeatures: string[];
+    aiProvider: string;
+    aiModel: string;
+    aiDetectionTimestamp: string;
+  };
+  portfolioItems?: PortfolioItem[];
+  summary?: PortfolioAuthenticitySummary;
+}> {
+  const token = getToken();
+  if (!token) throw new Error('Not authenticated.');
+
+  const formData = new FormData();
+  formData.append('image', file);
+
+  const res = await fetch('http://localhost:5000/api/contractors/me/portfolio/analyze', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || 'Error analyzing portfolio image.');
+  }
+  return data;
+}
+
+export async function apiConfirmPortfolioAi(payload: {
+  item: PortfolioItem;
+  action: 'KEEP_AI' | 'KEEP_UNVERIFIED';
+}): Promise<{
+  message: string;
+  item: PortfolioItem;
+  portfolioItems: PortfolioItem[];
+  summary: PortfolioAuthenticitySummary;
+}> {
+  const token = getToken();
+  if (!token) throw new Error('Not authenticated.');
+  return request('/contractors/me/portfolio/confirm-ai', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function apiReplacePortfolioImage(payload: {
+  file: File;
+  oldImageUrl: string;
+}): Promise<{
+  message: string;
+  saved: boolean;
+  requiresConfirmation: boolean;
+  item: PortfolioItem;
+  analysis: {
+    aiClassification: 'LIKELY_REAL' | 'LIKELY_AI_GENERATED' | 'UNCERTAIN';
+    aiConfidence: number;
+    authenticityScore: number;
+    analysisReason: string;
+    detectedFeatures: string[];
+  };
+  portfolioItems: PortfolioItem[];
+  summary: PortfolioAuthenticitySummary;
+}> {
+  const token = getToken();
+  if (!token) throw new Error('Not authenticated.');
+
+  const formData = new FormData();
+  formData.append('image', payload.file);
+  formData.append('oldImageUrl', payload.oldImageUrl);
+
+  const res = await fetch('http://localhost:5000/api/contractors/me/portfolio/replace', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || 'Error replacing portfolio image.');
+  }
+  return data;
+}
+
+export async function apiDeletePortfolioImage(imageUrl: string): Promise<{
+  message: string;
+  portfolioItems: PortfolioItem[];
+  summary: PortfolioAuthenticitySummary;
+}> {
+  const token = getToken();
+  if (!token) throw new Error('Not authenticated.');
+  return request('/contractors/me/portfolio', {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ imageUrl }),
+  });
+}
+
+export async function apiGetContractorPortfolio(contractorId: string): Promise<{
+  contractorId: string;
+  contractorName: string;
+  portfolioItems: PortfolioItem[];
+  summary: PortfolioAuthenticitySummary;
+}> {
+  return request(`/contractors/${contractorId}/portfolio`);
+}
+
+export async function apiValidatePortfolioImage(image: string): Promise<{
+  analysis: {
+    authenticity: 'LIKELY_REAL' | 'LIKELY_AI' | 'UNCERTAIN';
+    confidence: number;
+    scorePercentage: number;
+    reason: string;
+    detectedFeatures: string[];
+    analyzedAt: string;
+  };
+}> {
+  const token = getToken();
+  return request('/contractors/portfolio/validate-image', {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: JSON.stringify({ image }),
+  });
+}
+
 export async function apiGetContractors(): Promise<ApiContractor[]> {
   const data = await request<{ contractors: ApiContractor[] }>('/contractors');
   return data.contractors;
@@ -347,6 +511,7 @@ export async function apiGetContractorProfileMe(): Promise<{
 export async function apiSaveContractorProfile(payload: {
   fullName?: string;
   businessName?: string;
+  profileImage?: string;
   primaryTrade: string;
   specializations: string[];
   experienceYears: number;
@@ -358,6 +523,9 @@ export async function apiSaveContractorProfile(payload: {
   kycDocumentType?: string;
   kycDocumentNumber?: string;
   kycDocumentUrls?: string[];
+  portfolioImages?: string[];
+  portfolioItems?: PortfolioItem[];
+  isAvailable?: boolean;
 }): Promise<{ profile: ApiContractorProfile; onboardingCompleted: boolean }> {
   const token = getToken();
   if (!token) throw new Error('Not authenticated.');
@@ -371,6 +539,7 @@ export async function apiSaveContractorProfile(payload: {
 export async function apiUpdateContractorProfile(payload: {
   fullName?: string;
   businessName?: string;
+  profileImage?: string;
   primaryTrade?: string;
   specializations?: string[];
   experienceYears?: number;
@@ -381,6 +550,7 @@ export async function apiUpdateContractorProfile(payload: {
   teamSize?: number;
   isAvailable?: boolean;
   portfolioImages?: string[];
+  portfolioItems?: PortfolioItem[];
 }): Promise<{ profile: ApiContractorProfile }> {
   const token = getToken();
   if (!token) throw new Error('Not authenticated.');
