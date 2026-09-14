@@ -131,7 +131,7 @@ router.post('/phone-login', async (req: Request, res: Response) => {
 // ── POST /api/auth/phone-register ───────────────────────────────────────────
 router.post('/phone-register', async (req: Request, res: Response) => {
   try {
-    const { fullName, phone, role, pin } = req.body;
+    const { fullName, phone, role, pin, email } = req.body;
     if (!fullName || typeof fullName !== 'string' || fullName.trim().length < 2) {
       res.status(400).json({ message: 'Full name must be at least 2 characters.' });
       return;
@@ -162,8 +162,20 @@ router.post('/phone-register', async (req: Request, res: Response) => {
     const salt = await bcrypt.genSalt(12);
     const pinHash = await bcrypt.hash(pin.trim(), salt);
     const userRole = (role?.toLowerCase() === 'contractor' ? 'CONTRACTOR' : 'CLIENT') as 'CLIENT' | 'CONTRACTOR';
+    
+    let cleanEmail: string | undefined;
+    if (email && typeof email === 'string' && email.trim()) {
+      cleanEmail = email.toLowerCase().trim();
+      const existingEmail = await User.findOne({ email: cleanEmail });
+      if (existingEmail) {
+        res.status(409).json({ message: 'An account with this email address already exists.' });
+        return;
+      }
+    }
+
     const user = await User.create({
       fullName: fullName.trim(),
+      email: cleanEmail,
       phone: normalizedPhone,
       role: userRole,
       status: 'ACTIVE',
@@ -347,6 +359,17 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
       return;
     }
 
+    // Rate limit: check if a token was generated in the last 60 seconds
+    const recentToken = await PasswordResetToken.findOne({
+      userId: user._id,
+      purpose: 'password-reset',
+      createdAt: { $gte: new Date(Date.now() - 60 * 1000) }
+    });
+    if (recentToken) {
+      res.status(429).json({ message: 'Please wait 60 seconds before requesting a new code.' });
+      return;
+    }
+
     // Invalidate any existing unused tokens for this user/purpose
     await PasswordResetToken.deleteMany({ userId: user._id, purpose: 'password-reset', used: false });
 
@@ -420,6 +443,14 @@ router.post('/verify-reset-otp', async (req: Request, res: Response) => {
 
     const otpHash = hashOtp(otp.trim());
     if (otpHash !== tokenRecord.tokenHash) {
+      tokenRecord.failedAttempts = (tokenRecord.failedAttempts || 0) + 1;
+      if (tokenRecord.failedAttempts >= 5) {
+        tokenRecord.used = true;
+        await tokenRecord.save();
+        res.status(400).json({ message: 'Too many incorrect attempts. This code has been invalidated. Please request a new one.' });
+        return;
+      }
+      await tokenRecord.save();
       res.status(400).json({ message: 'Incorrect verification code. Please try again.' });
       return;
     }
@@ -504,12 +535,23 @@ router.post('/forgot-pin', async (req: Request, res: Response) => {
     }
 
     if (!user.email) {
-      res.status(400).json({ message: 'No registered email address is linked to this account. Please contact support.' });
+      res.status(200).json({ noEmail: true, message: 'No registered email address is linked to this account.' });
       return;
     }
 
     const targetEmail = user.email.toLowerCase().trim();
     const maskedEmail = targetEmail.replace(/^(.{2})(.*)(@.*)$/, (_, a, b, c) => a + '*'.repeat(Math.min(b.length, 5)) + c);
+
+    // Rate limit: check if a token was generated in the last 60 seconds
+    const recentToken = await PasswordResetToken.findOne({
+      userId: user._id,
+      purpose: 'pin-reset',
+      createdAt: { $gte: new Date(Date.now() - 60 * 1000) }
+    });
+    if (recentToken) {
+      res.status(429).json({ message: 'Please wait 60 seconds before requesting a new code.' });
+      return;
+    }
 
     // Invalidate any existing unused tokens for this user/purpose
     await PasswordResetToken.deleteMany({ userId: user._id, purpose: 'pin-reset', used: false });
