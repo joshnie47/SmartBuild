@@ -1,3 +1,4 @@
+# Logs
 logs
 *.log
 npm-debug.log*
@@ -6,24 +7,51 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# Node / Dependencies
+node_modules/
+**/node_modules/
 
+# Production Build Outputs
+dist/
+**/dist/
+dist-ssr/
+build/
+out/
+
+# Environment variables, API keys, & secrets
+.env
+.env.*
+*.env
+!.env.example
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
+secrets/
+service-account*.json
+firebase-adminsdk*.json
+
+# Runtime uploads & scratch files
+uploads/*
+!uploads/.gitkeep
+**/uploads/*
+!**/uploads/.gitkeep
+scratch/
+**/scratch/
+server_test_output.txt
+
+# IDE & OS files
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
+Thumbs.db
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
-.env
-server/.env
-server/node_modules
-server/dist
-server_test_output.txt  
- 
-. b o l t  
+.bolt/
+.bolt

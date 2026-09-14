@@ -175,6 +175,84 @@ export async function apiGetMe(): Promise<ApiUser> {
   return data.user;
 }
 
+// Forgot Password — Step 1: send OTP to email
+export async function apiForgotPassword(email: string): Promise<{ message: string }> {
+  return request<{ message: string }>('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+
+// Forgot Password — Step 2: verify OTP, get resetToken
+export async function apiVerifyResetOtp(
+  email: string,
+  otp: string,
+  purpose: 'password-reset' | 'pin-reset' = 'password-reset'
+): Promise<{ resetToken: string; message: string }> {
+  return request<{ resetToken: string; message: string }>('/auth/verify-reset-otp', {
+    method: 'POST',
+    body: JSON.stringify({ email, otp, purpose }),
+  });
+}
+
+// Forgot Password — Step 3: set new password using resetToken
+export async function apiResetPassword(resetToken: string, newPassword: string): Promise<{ message: string }> {
+  return request<{ message: string }>('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ resetToken, newPassword }),
+  });
+}
+
+// Forgot PIN — Step 1: send OTP to registered email via phone or email lookup
+export async function apiForgotPin(payload: { phone?: string; email?: string } | string): Promise<{ message: string; email?: string; maskedEmail?: string }> {
+  const body = typeof payload === 'string' ? (payload.includes('@') ? { email: payload } : { phone: payload }) : payload;
+  return request<{ message: string; email?: string; maskedEmail?: string }>('/auth/forgot-pin', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+// Forgot PIN — Step 3: set new PIN using resetToken
+export async function apiResetPin(resetToken: string, newPin: string): Promise<{ message: string }> {
+  return request<{ message: string }>('/auth/reset-pin', {
+    method: 'POST',
+    body: JSON.stringify({ resetToken, newPin }),
+  });
+}
+
+// Update email address for phone-only users (authenticated)
+export async function apiUpdateEmail(email: string): Promise<{ user: User; message: string }> {
+  const token = getToken();
+  if (!token) throw new Error('Not authenticated.');
+  return request<{ user: User; message: string }>('/auth/update-email', {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ email }),
+  });
+}
+
+// Change Password (authenticated)
+export async function apiChangePassword(currentPassword: string, newPassword: string): Promise<{ message: string }> {
+  const token = getToken();
+  if (!token) throw new Error('Not authenticated.');
+  return request<{ message: string }>('/auth/change-password', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}
+
+// Change PIN (authenticated)
+export async function apiChangePin(currentPin: string, newPin: string): Promise<{ message: string }> {
+  const token = getToken();
+  if (!token) throw new Error('Not authenticated.');
+  return request<{ message: string }>('/auth/change-pin', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ currentPin, newPin }),
+  });
+}
+
 // ── Project APIs ─────────────────────────────────────────────────────────────
 export async function apiDetectCategory(title: string, description: string): Promise<string> {
   const data = await request<{ category: string }>('/projects/detect-category', {

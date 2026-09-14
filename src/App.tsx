@@ -4,9 +4,10 @@ import { LocaleContext } from './i18n/LocaleContext';
 import { getStoredLocale, storeLocale } from './i18n';
 import type { Locale } from './i18n';
 import { getToken, setToken, clearToken } from './lib/auth';
-import { apiGetMe, apiGetContractorProfileMe } from './lib/api';
+import { apiGetMe, apiGetContractorProfileMe, type ApiUser } from './lib/api';
 import { Sidebar } from './components/Sidebar';
 import { SidebarContext } from './components/sidebar-context';
+import { MissingEmailBanner } from './components/MissingEmailBanner';
 import { AuthScreen } from './screens/AuthScreen';
 import { ClientHome } from './screens/ClientHome';
 import { PostProject } from './screens/PostProject';
@@ -40,12 +41,14 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sessionLoading, setSessionLoading] = useState(!getAdminSession() && !!getToken());
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<ApiUser | null>(null);
 
   // On mount: if a JWT exists, restore session via /api/auth/me and contractor profile
   useEffect(() => {
     if (!getToken() || getAdminSession()) return;
     apiGetMe()
       .then(async (user) => {
+        setCurrentUser(user);
         const r = user.role.toLowerCase() as Role;
         setRole(r);
         if (r === 'client') {
@@ -65,6 +68,7 @@ function App() {
       })
       .catch(() => {
         clearToken();
+        setCurrentUser(null);
       })
       .finally(() => setSessionLoading(false));
   }, []);
@@ -72,6 +76,16 @@ function App() {
   const handleAuth = async (r: Role, token?: string) => {
     if (token) setToken(token); else clearToken();
     setRole(r);
+    if (token) {
+      try {
+        const u = await apiGetMe();
+        setCurrentUser(u);
+      } catch {
+        setCurrentUser(null);
+      }
+    } else {
+      setCurrentUser(null);
+    }
     if (r === 'client') {
       setScreen('client-home');
     } else if (r === 'contractor') {
@@ -96,6 +110,7 @@ function App() {
       clearToken();
       setAdminSession(false);
       setRole(null);
+      setCurrentUser(null);
       setScreen('auth');
       setActiveProjectId(null);
       return;
@@ -193,6 +208,15 @@ function App() {
           />
         )}
         <div className="lg:pl-64">
+          {currentUser && (!currentUser.email || !currentUser.email.trim()) && (role === 'client' || role === 'contractor') && (
+            <div className="px-4 sm:px-6 pt-4 max-w-7xl mx-auto">
+              <MissingEmailBanner
+                onEmailUpdated={(updatedEmail) => {
+                  setCurrentUser(prev => prev ? { ...prev, email: updatedEmail } : null);
+                }}
+              />
+            </div>
+          )}
           {renderScreen()}
         </div>
       </div>
