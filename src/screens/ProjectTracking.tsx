@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Check, ChevronDown, MessageSquare, Clock, ArrowLeft, Star, AlertCircle, Loader2, ShieldCheck } from 'lucide-react';
+import { Check, ChevronDown, MessageSquare, Clock, ArrowLeft, Star, AlertCircle, Loader2, ShieldCheck, X, Maximize2, FileText } from 'lucide-react';
 import { TopNav } from '../components/TopNav';
 import { MicButton } from '../components/ui';
-import type { ScreenId, Milestone } from '../types';
+import type { ScreenId, Milestone, ProjectEvidenceItem } from '../types';
 import { useLocale } from '../i18n/LocaleContext';
 import { t } from '../i18n';
-import { apiGetProjects, apiGetProjectById, type ApiProject } from '../lib/api';
+import { apiGetProjects, apiGetProjectById, getApiBaseUrl, type ApiProject } from '../lib/api';
 
 const defaultFallbackMilestones: Milestone[] = [
   { id: 'm1', label: 'Site Inspection & Setup', status: 'current', timestamp: 'Initial Stage', note: 'Project initialized. Preparing for site work.' },
@@ -15,12 +15,24 @@ const defaultFallbackMilestones: Milestone[] = [
   { id: 'm5', label: 'Final Handover', status: 'upcoming' },
 ];
 
+function resolveImageUrl(url?: string): string {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
+  const baseUrl = getApiBaseUrl().replace(/\/api\/?$/, '');
+  return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
 export function ProjectTracking({ onNavigate, projectId }: { onNavigate: (id: ScreenId, projectId?: string) => void; projectId?: string }) {
   const { locale } = useLocale();
   const [project, setProject] = useState<ApiProject | null>(null);
   const [milestonesList, setMilestonesList] = useState<Milestone[]>(defaultFallbackMilestones);
   const [expanded, setExpanded] = useState<string | null>('m1');
   const [loading, setLoading] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<{
+    url: string;
+    label: string;
+    evidenceItem?: ProjectEvidenceItem;
+  } | null>(null);
 
   useEffect(() => {
     async function loadProject() {
@@ -85,7 +97,7 @@ export function ProjectTracking({ onNavigate, projectId }: { onNavigate: (id: Sc
       <div className="mx-auto max-w-xl px-4 py-6 md:px-6 md:py-8">
         <button
           onClick={() => onNavigate('client-home')}
-          className="mb-4 flex items-center gap-1 text-sm text-gray-500 hover:text-navy-600"
+          className="mb-4 flex items-center gap-1 text-sm text-gray-500 hover:text-navy-600 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" /> {t(locale, 'back') || 'Back to Projects'}
         </button>
@@ -156,7 +168,15 @@ export function ProjectTracking({ onNavigate, projectId }: { onNavigate: (id: Sc
               {milestonesList.map((m, i) => {
                 const isLast = i === milestonesList.length - 1;
                 const isOpen = expanded === m.id;
-                const displayPhotos = m.photos || (m.photo ? [m.photo] : []);
+
+                const displayPhotos =
+                  m.photos && m.photos.length > 0
+                    ? m.photos
+                    : m.evidenceItems && m.evidenceItems.length > 0
+                    ? m.evidenceItems.map((e) => e.photoUrl)
+                    : m.photo
+                    ? [m.photo]
+                    : [];
 
                 return (
                   <div key={m.id} className="flex gap-4">
@@ -219,21 +239,32 @@ export function ProjectTracking({ onNavigate, projectId }: { onNavigate: (id: Sc
                           {m.note && <p className="text-xs text-navy-700 leading-relaxed">{m.note}</p>}
 
                           {/* Evidence Photo Gallery with AI Authenticity Badges */}
-                          {displayPhotos.length > 0 && (
+                          {displayPhotos.length > 0 ? (
                             <div className="space-y-2 pt-1">
                               <div className="flex items-center gap-1.5 text-xs text-emerald-700 font-bold">
                                 <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                                <span>🛡️ AI Verified Genuine Site Photo Evidence ({displayPhotos.length})</span>
+                                <span>🛡️ AI Verified Site Evidence ({displayPhotos.length})</span>
                               </div>
                               <div className="grid grid-cols-2 gap-2">
-                                {displayPhotos.map((photoUrl, pIdx) => {
+                                {displayPhotos.map((rawUrl, pIdx) => {
+                                  const photoUrl = resolveImageUrl(rawUrl);
                                   const evItem = m.evidenceItems?.[pIdx];
                                   const confidencePct = evItem
                                     ? Math.round((evItem.authenticityScore ?? (1 - evItem.validationConfidence)) * 100)
                                     : 95;
 
                                   return (
-                                    <div key={pIdx} className="relative group overflow-hidden rounded-lg border border-gray-200 bg-gray-900">
+                                    <div
+                                      key={pIdx}
+                                      onClick={() =>
+                                        setSelectedPhoto({
+                                          url: photoUrl,
+                                          label: m.label,
+                                          evidenceItem: evItem,
+                                        })
+                                      }
+                                      className="relative group cursor-pointer overflow-hidden rounded-lg border border-gray-200 bg-gray-900 shadow-xs"
+                                    >
                                       <img
                                         src={photoUrl}
                                         alt={`${m.label} evidence photo ${pIdx + 1}`}
@@ -243,11 +274,20 @@ export function ProjectTracking({ onNavigate, projectId }: { onNavigate: (id: Sc
                                         <ShieldCheck className="h-3 w-3" />
                                         <span>Verified {confidencePct}% Real</span>
                                       </div>
+                                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <Maximize2 className="h-5 w-5 text-white" />
+                                      </div>
                                     </div>
                                   );
                                 })}
                               </div>
                             </div>
+                          ) : (
+                            m.status === 'completed' && (
+                              <p className="text-xs text-gray-400 italic pt-1 flex items-center gap-1">
+                                <FileText className="h-3.5 w-3.5 text-gray-300" /> No evidence photos attached for this stage.
+                              </p>
+                            )
                           )}
                         </div>
                       )}
@@ -262,14 +302,14 @@ export function ProjectTracking({ onNavigate, projectId }: { onNavigate: (id: Sc
               {isAllComplete ? (
                 <button
                   onClick={() => onNavigate('review-dispute')}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white shadow-md hover:bg-emerald-700"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white shadow-md hover:bg-emerald-700 transition-colors"
                 >
                   <Star className="h-4 w-4 fill-current" /> Rate & Review Project
                 </button>
               ) : (
                 <button
                   onClick={() => onNavigate('review-dispute')}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-400 py-2.5 text-xs font-semibold text-navy-700 hover:bg-amber-300"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-400 py-2.5 text-xs font-semibold text-navy-700 hover:bg-amber-300 transition-colors"
                 >
                   Project Completed? Leave Review / Dispute
                 </button>
@@ -277,7 +317,7 @@ export function ProjectTracking({ onNavigate, projectId }: { onNavigate: (id: Sc
 
               <button
                 onClick={() => onNavigate('chat')}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-navy-200 py-2.5 text-xs font-semibold text-navy-600 hover:bg-navy-50"
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-navy-200 py-2.5 text-xs font-semibold text-navy-600 hover:bg-navy-50 transition-colors"
               >
                 <MessageSquare className="h-4 w-4" /> {t(locale, 'chatWithContractor') || 'Chat with Contractor'}
               </button>
@@ -285,6 +325,57 @@ export function ProjectTracking({ onNavigate, projectId }: { onNavigate: (id: Sc
           </>
         )}
       </div>
+
+      {/* Photo Lightbox Modal */}
+      {selectedPhoto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-fadeIn">
+          <div className="relative max-w-2xl w-full rounded-2xl bg-white overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 bg-navy-900 text-white">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-emerald-400" />
+                <span className="font-bold text-sm">{selectedPhoto.label} — Evidence Photo</span>
+              </div>
+              <button
+                onClick={() => setSelectedPhoto(null)}
+                className="rounded-full p-1 text-gray-300 hover:bg-navy-800 hover:text-white transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="relative bg-black flex items-center justify-center min-h-[300px] max-h-[70vh]">
+              <img
+                src={selectedPhoto.url}
+                alt={selectedPhoto.label}
+                className="max-h-[70vh] w-auto max-w-full object-contain"
+              />
+            </div>
+
+            <div className="p-4 bg-gray-50 border-t border-gray-200 space-y-2 text-xs text-navy-700">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-emerald-700 flex items-center gap-1">
+                  <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                  Verified Genuine Site Photo (SmartBuild AI Engine)
+                </span>
+                {selectedPhoto.evidenceItem?.uploadedAt && (
+                  <span className="text-gray-400 font-medium">
+                    {new Date(selectedPhoto.evidenceItem.uploadedAt).toLocaleString('en-IN', {
+                      dateStyle: 'medium',
+                      timeStyle: 'short',
+                    })}
+                  </span>
+                )}
+              </div>
+              {selectedPhoto.evidenceItem?.analysisReason && (
+                <p className="text-navy-600 bg-white p-2.5 rounded-lg border border-gray-200">
+                  <strong>Forensic Signature:</strong> {selectedPhoto.evidenceItem.analysisReason}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <MicButton />
     </div>
   );

@@ -884,6 +884,7 @@ router.patch('/:id/milestone', protect, async (req: AuthRequest, res: Response) 
       }
     }
 
+    project.markModified('milestones');
     await project.save();
 
     // Fetch contractor name for notification
