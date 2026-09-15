@@ -8,7 +8,11 @@ import { Notification } from '../models/Notification';
 import { ContractorProfile } from '../models/ContractorProfile';
 import { getCategoryStages } from '../utils/trackingStages';
 
+import dns from 'dns';
+dns.setServers(['8.8.8.8', '8.8.4.4']);
+
 dotenv.config({ path: path.join(__dirname, '../../.env') });
+
 
 async function runProjectTrackingSuite() {
   console.log('=====================================================');
