@@ -7,6 +7,7 @@ import { ContractorProfile } from '../models/ContractorProfile';
 import { Notification } from '../models/Notification';
 import { protect, AuthRequest } from '../middleware/auth';
 import { getCategoryStages } from '../utils/trackingStages';
+import { createConversationOnBidAccept } from '../services/chat/conversation.service';
 
 const router = Router();
 
@@ -323,6 +324,14 @@ router.post('/:id/accept', protect, async (req: AuthRequest, res: Response) => {
     project.status = 'IN_PROGRESS';
     project.milestones = getCategoryStages(project.category);
     await project.save();
+
+    // Auto-create a conversation between the client and the winning contractor
+    await createConversationOnBidAccept(
+      project._id.toString(),
+      bid._id.toString(),
+      req.userId!,            // client (project owner)
+      bid.contractorId.toString()
+    );
 
     // Notify winning contractor
     await Notification.create({

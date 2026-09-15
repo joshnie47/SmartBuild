@@ -61,8 +61,8 @@ export function MissingEmailBanner({ onEmailUpdated }: MissingEmailBannerProps) 
           </div>
           <div>
             <h4 className="text-sm font-bold text-navy-900">Add Your Email Address</h4>
-            <p className="mt-0.5 text-xs text-navy-600">
-              Add your email address to enable secure PIN recovery and receive important SmartBuild notifications.
+            <p className="mt-0.5 text-xs text-navy-600 font-medium">
+              Without an email address, <span className="font-bold text-red-600">you cannot reset your PIN if you forget it.</span> Add your email now to secure your account.
             </p>
           </div>
         </div>

@@ -79,6 +79,7 @@ export function AuthScreen({
   const [fpError, setFpError] = useState('');
   const [fpSuccess, setFpSuccess] = useState('');
   const [fpLoading, setFpLoading] = useState(false);
+  const [fpResendCooldown, setFpResendCooldown] = useState(0);
 
   // Forgot PIN state
   const [showForgotPinModal, setShowForgotPinModal] = useState(false);
@@ -94,6 +95,8 @@ export function AuthScreen({
   const [pinError2, setPinError2] = useState('');
   const [pinSuccess, setPinSuccess] = useState('');
   const [pinLoading, setPinLoading] = useState(false);
+  const [pinNoEmail, setPinNoEmail] = useState(false);
+  const [pinResendCooldown, setPinResendCooldown] = useState(0);
 
   // Resend OTP Cooldown & Banner States
   const [fpResendCooldown, setFpResendCooldown] = useState(0);
@@ -137,6 +140,23 @@ export function AuthScreen({
     setShowConfirmPassword(false);
   }, [mode, method]);
 
+  // Countdown timers for resend cooldowns
+  useEffect(() => {
+    let fpTimer: ReturnType<typeof setInterval>;
+    if (fpResendCooldown > 0) {
+      fpTimer = setInterval(() => setFpResendCooldown((prev) => prev - 1), 1000);
+    }
+    return () => clearInterval(fpTimer);
+  }, [fpResendCooldown]);
+
+  useEffect(() => {
+    let pinTimer: ReturnType<typeof setInterval>;
+    if (pinResendCooldown > 0) {
+      pinTimer = setInterval(() => setPinResendCooldown((prev) => prev - 1), 1000);
+    }
+    return () => clearInterval(pinTimer);
+  }, [pinResendCooldown]);
+
   // ── PHONE STEP 1: Check phone existence ──────────────────────────────────
   const handlePhoneStepOne = async () => {
     setGeneralError('');
@@ -144,9 +164,15 @@ export function AuthScreen({
     setNameError('');
     setShowPointingHand(false);
 
-    if (mode === 'signup' && !name.trim()) {
-      setNameError(t(locale, 'errEnterName'));
-      return;
+    if (mode === 'signup') {
+      if (!name.trim()) {
+        setNameError(t(locale, 'errEnterName'));
+        return;
+      }
+      if (email.trim() && !isValidEmail(email.trim())) {
+        setEmailError('Please enter a valid email address.');
+        return;
+      }
     }
     if (!phone.trim()) {
       setPhoneError(t(locale, 'errEnterPhone'));
@@ -251,6 +277,7 @@ export function AuthScreen({
         phone: normalizedPhone,
         role: role.toUpperCase(),
         pin: pin.trim(),
+        email: email.trim() || undefined,
       });
       onAuth(user.role.toLowerCase() as Role, token);
     } catch (err: unknown) {
@@ -480,6 +507,7 @@ export function AuthScreen({
     setPinShowNewPin(false);
     setPinResendCooldown(0);
     setPinResendBanner('');
+    setPinNoEmail(false);
     setShowForgotPinModal(true);
   };
 
@@ -500,6 +528,10 @@ export function AuthScreen({
       const isEmail = isValidEmail(input);
       const payload = isEmail ? { email: input.toLowerCase() } : { phone: input };
       const res = await apiForgotPin(payload);
+      if (res.noEmail) {
+        setPinNoEmail(true);
+        return;
+      }
       if (res.email) setPinEmail(res.email);
       if (res.maskedEmail) setPinMaskedEmail(res.maskedEmail);
       setPinStep(2);
@@ -703,19 +735,38 @@ export function AuthScreen({
                 {phoneStep === 'input' && (
                   <>
                     {mode === 'signup' && (
-                      <div>
-                        <div className={`flex items-center gap-2 rounded-lg border px-3 py-3 ${nameError ? 'border-red-400' : 'border-gray-200 focus-within:border-navy-400'}`}>
-                          <input
-                            type="text"
-                            placeholder={t(locale, 'fullName')}
-                            value={name}
-                            autoComplete="name"
-                            onChange={(e) => { setName(e.target.value); clearFieldError('name'); }}
-                            className="w-full bg-transparent text-sm text-navy-700 placeholder-gray-300 outline-none"
-                          />
+                      <>
+                        <div>
+                          <div className={`flex items-center gap-2 rounded-lg border px-3 py-3 ${nameError ? 'border-red-400' : 'border-gray-200 focus-within:border-navy-400'}`}>
+                            <input
+                              type="text"
+                              placeholder={t(locale, 'fullName')}
+                              value={name}
+                              autoComplete="name"
+                              onChange={(e) => { setName(e.target.value); clearFieldError('name'); }}
+                              className="w-full bg-transparent text-sm text-navy-700 placeholder-gray-300 outline-none"
+                            />
+                          </div>
+                          {nameError && <p className="mt-1 text-xs text-red-500">{nameError}</p>}
                         </div>
-                        {nameError && <p className="mt-1 text-xs text-red-500">{nameError}</p>}
-                      </div>
+                        <div>
+                          <div className={`flex items-center gap-2 rounded-lg border px-3 py-3 ${emailError ? 'border-red-400' : 'border-gray-200 focus-within:border-navy-400'}`}>
+                            <Mail className="h-4 w-4 text-gray-400" />
+                            <input
+                              type="email"
+                              placeholder="Email (optional — needed for PIN recovery)"
+                              value={email}
+                              autoComplete="email"
+                              onChange={(e) => { setEmail(e.target.value); clearFieldError('email'); }}
+                              className="w-full bg-transparent text-sm text-navy-700 placeholder-gray-300 outline-none"
+                            />
+                          </div>
+                          <p className="mt-1 text-xs text-amber-600 font-medium">
+                            💡 Add your email so you can reset your PIN if you forget it.
+                          </p>
+                          {emailError && <p className="mt-1 text-xs text-red-500">{emailError}</p>}
+                        </div>
+                      </>
                     )}
                     <div>
                       <div className={`flex items-center gap-2 rounded-lg border px-3 py-3 ${phoneError ? 'border-red-400' : 'border-gray-200 focus-within:border-navy-400'}`}>
@@ -1205,28 +1256,52 @@ export function AuthScreen({
 
                 {/* Step 1: Enter Phone Number */}
                 {pinStep === 1 && (
-                  <form className="mt-4 space-y-3" onSubmit={(e) => { e.preventDefault(); handlePinSendCode(); }}>
-                    <p className="text-xs text-gray-500">Enter your registered phone number. We'll search MongoDB Atlas for your account and send an OTP verification code to your registered email address.</p>
-                    <div className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2.5 focus-within:border-navy-400">
-                      <Phone className="h-4 w-4 text-gray-400" />
-                      <input
-                        type="text"
-                        placeholder="Registered phone number (+91...)"
-                        value={pinIdentifier}
-                        autoFocus
-                        onChange={(e) => setPinIdentifier(e.target.value)}
-                        className="w-full bg-transparent text-sm text-navy-700 outline-none"
-                      />
+                  pinNoEmail ? (
+                    <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-5 text-center space-y-3">
+                      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
+                        <Mail className="h-6 w-6 text-amber-600" />
+                      </div>
+                      <h4 className="text-sm font-bold text-navy-800">No Email Linked to This Account</h4>
+                      <p className="text-xs text-gray-600 leading-relaxed">
+                        To receive the reset code, your account needs a registered email address.
+                      </p>
+                      <div className="rounded-lg bg-white border border-amber-200 p-3 text-left space-y-2">
+                        <p className="text-xs font-semibold text-navy-700">What you can do:</p>
+                        <p className="text-xs text-gray-600">✅ If you can log in — add your email from the banner shown in your dashboard.</p>
+                        <p className="text-xs text-gray-600">📞 Fully locked out — contact SmartBuild support.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { setPinNoEmail(false); setPinIdentifier(''); setPinError2(''); }}
+                        className="text-xs text-navy-500 hover:text-navy-700 underline"
+                      >
+                        ← Try a different number
+                      </button>
                     </div>
-                    {pinError2 && <p className="text-xs text-red-500">{pinError2}</p>}
-                    <button
-                      type="submit"
-                      disabled={pinLoading}
-                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-400 py-2.5 text-sm font-semibold text-navy-700 hover:bg-amber-300 disabled:opacity-60"
-                    >
-                      {pinLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Send Verification Code'}
-                    </button>
-                  </form>
+                  ) : (
+                    <form className="mt-4 space-y-3" onSubmit={(e) => { e.preventDefault(); handlePinSendCode(); }}>
+                      <p className="text-xs text-gray-500">Enter your registered phone number. We'll search MongoDB Atlas for your account and send an OTP verification code to your registered email address.</p>
+                      <div className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2.5 focus-within:border-navy-400">
+                        <Phone className="h-4 w-4 text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="Registered phone number (+91...)"
+                          value={pinIdentifier}
+                          autoFocus
+                          onChange={(e) => setPinIdentifier(e.target.value)}
+                          className="w-full bg-transparent text-sm text-navy-700 outline-none"
+                        />
+                      </div>
+                      {pinError2 && <p className="text-xs text-red-500">{pinError2}</p>}
+                      <button
+                        type="submit"
+                        disabled={pinLoading}
+                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-400 py-2.5 text-sm font-semibold text-navy-700 hover:bg-amber-300 disabled:opacity-60"
+                      >
+                        {pinLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Send Verification Code'}
+                      </button>
+                    </form>
+                  )
                 )}
 
                 {/* Step 2: Enter OTP */}

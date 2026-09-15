@@ -7,6 +7,7 @@ export interface IPasswordResetToken extends Document {
   purpose: 'password-reset' | 'pin-reset';
   expiresAt: Date;
   used: boolean;
+  failedAttempts: number;
   createdAt: Date;
 }
 
@@ -21,6 +22,7 @@ const PasswordResetTokenSchema = new Schema<IPasswordResetToken>(
     },
     expiresAt: { type: Date, required: true },
     used: { type: Boolean, default: false },
+    failedAttempts: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

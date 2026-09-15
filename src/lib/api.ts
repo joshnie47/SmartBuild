@@ -152,6 +152,7 @@ export async function apiPhoneRegister(payload: {
   phone: string;
   role: string;
   pin: string;
+  email?: string;
 }): Promise<{ token: string; user: ApiUser }> {
   return request<{ token: string; user: ApiUser }>('/auth/phone-register', {
     method: 'POST',
@@ -224,9 +225,9 @@ export async function apiResetPassword(resetToken: string, newPassword: string):
 }
 
 // Forgot PIN — Step 1: send OTP to registered email via phone or email lookup
-export async function apiForgotPin(payload: { phone?: string; email?: string } | string): Promise<{ message: string; email?: string; maskedEmail?: string }> {
+export async function apiForgotPin(payload: { phone?: string; email?: string } | string): Promise<{ message: string; email?: string; maskedEmail?: string; noEmail?: boolean }> {
   const body = typeof payload === 'string' ? (payload.includes('@') ? { email: payload } : { phone: payload }) : payload;
-  return request<{ message: string; email?: string; maskedEmail?: string }>('/auth/forgot-pin', {
+  return request<{ message: string; email?: string; maskedEmail?: string; noEmail?: boolean }>('/auth/forgot-pin', {
     method: 'POST',
     body: JSON.stringify(body),
   });
