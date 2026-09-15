@@ -2,10 +2,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Paperclip, Send, ArrowLeft, ClipboardList, Search, Wifi, WifiOff } from 'lucide-react';
 import { TopNav } from '../components/TopNav';
 import { MicInline, MicButton, Avatar } from '../components/ui';
-import type { ScreenId } from '../types';
 import { apiGetConversations, apiGetMessages, type ApiConversation, type ApiMessage } from '../lib/chatApi';
 import { chatSocket, type ServerEvent } from '../lib/chatSocket';
-import { v4 as uuidv4 } from 'uuid';
+const uuidv4 = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`);
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

@@ -99,9 +99,7 @@ export function AuthScreen({
   const [pinResendCooldown, setPinResendCooldown] = useState(0);
 
   // Resend OTP Cooldown & Banner States
-  const [fpResendCooldown, setFpResendCooldown] = useState(0);
   const [fpResendBanner, setFpResendBanner] = useState('');
-  const [pinResendCooldown, setPinResendCooldown] = useState(0);
   const [pinResendBanner, setPinResendBanner] = useState('');
 
   // Countdown timers for OTP resend
