@@ -6,6 +6,7 @@ import { User } from '../models/User';
 import { ContractorProfile } from '../models/ContractorProfile';
 import { Notification } from '../models/Notification';
 import { protect, AuthRequest } from '../middleware/auth';
+import { getCategoryStages } from '../utils/trackingStages';
 
 const router = Router();
 
@@ -316,10 +317,11 @@ router.post('/:id/accept', protect, async (req: AuthRequest, res: Response) => {
       { status: 'REJECTED' }
     );
 
-    // Update project with assigned contractor and in_progress status
+    // Update project with assigned contractor, category-aware tracking stages, and in_progress status
     project.selectedContractorId = bid.contractorId;
     project.selectedBidId = bid._id as mongoose.Types.ObjectId;
     project.status = 'IN_PROGRESS';
+    project.milestones = getCategoryStages(project.category);
     await project.save();
 
     // Notify winning contractor
@@ -327,13 +329,23 @@ router.post('/:id/accept', protect, async (req: AuthRequest, res: Response) => {
       recipientId: bid.contractorId,
       senderId: req.userId,
       title: 'Congratulations! Your Bid was Accepted 🎉',
-      message: `Your quotation of ₹${bid.amount.toLocaleString('en-IN')} for "${project.title}" has been accepted! You can now start work.`,
+      message: `Your quotation of ₹${bid.amount.toLocaleString('en-IN')} for "${project.title}" has been accepted! Work has started with Stage 1: Site Visit.`,
       type: 'PROJECT_AWARDED',
       projectId: project._id,
     });
 
+    // Notify client
+    await Notification.create({
+      recipientId: req.userId,
+      senderId: bid.contractorId,
+      title: 'Project Started',
+      message: `Bid accepted for "${project.title}". Project tracking has started with Stage 1: Site Visit.`,
+      type: 'PROGRESS_UPDATED',
+      projectId: project._id,
+    });
+
     res.json({
-      message: 'Bid accepted successfully.',
+      message: 'Bid accepted successfully. Project tracking started.',
       bid,
       project,
     });

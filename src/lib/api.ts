@@ -11,6 +11,11 @@ export type {
 
 const BASE = 'http://localhost:5000/api';
 
+export function getApiBaseUrl(): string {
+  return BASE;
+}
+
+
 export interface ApiUser {
   _id: string;
   fullName: string;
@@ -29,6 +34,18 @@ export interface AuthResponse {
   user: ApiUser;
 }
 
+export interface ApiEvidenceItem {
+  photoUrl: string;
+  originalFilename?: string;
+  validationStatus: 'LIKELY_REAL' | 'LIKELY_AI_GENERATED' | 'UNCERTAIN';
+  validationConfidence: number;
+  authenticityScore?: number;
+  validatedAt: string;
+  uploadedAt: string;
+  analysisReason?: string;
+  detectedFeatures?: string[];
+}
+
 export interface ApiProjectMilestone {
   id: string;
   label: string;
@@ -36,7 +53,10 @@ export interface ApiProjectMilestone {
   timestamp?: string;
   note?: string;
   photo?: string;
+  photos?: string[];
+  evidenceItems?: ApiEvidenceItem[];
 }
+
 
 export interface ApiProject {
   _id: string;
@@ -378,9 +398,70 @@ export async function apiSelectContractor(
   });
 }
 
+export interface ApiEvidenceValidationResult {
+  isAiGenerated: boolean;
+  validationStatus: 'LIKELY_REAL' | 'LIKELY_AI_GENERATED' | 'UNCERTAIN';
+  aiConfidence: number;
+  authenticityScore?: number;
+  analysisReason?: string;
+  detectedFeatures?: string[];
+  photoUrl?: string;
+  evidenceItem?: ApiEvidenceItem;
+  message: string;
+}
+
+export async function apiValidateProjectEvidence(
+  projectId: string,
+  filesOrData: File[] | string[]
+): Promise<{ message: string; results: ApiEvidenceValidationResult[] }> {
+  const token = getToken();
+  if (!token) throw new Error('Not authenticated.');
+
+  if (filesOrData.length > 0 && typeof filesOrData[0] === 'string') {
+    return request<{ message: string; results: ApiEvidenceValidationResult[] }>(
+      `/projects/${projectId}/validate-evidence`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ images: filesOrData }),
+      }
+    );
+  }
+
+  const formData = new FormData();
+  for (const file of filesOrData as File[]) {
+    formData.append('photos', file);
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/projects/${projectId}/validate-evidence`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+  } catch (err: unknown) {
+    throw new Error('Unable to connect to backend server. Please check your network connection.');
+  }
+
+  let data: any;
+  try {
+    data = await res.json();
+  } catch {
+    throw new Error(`Server returned invalid response (${res.status} ${res.statusText})`);
+  }
+
+  if (!res.ok) {
+    throw new Error(data.message || 'Error validating evidence photo.');
+  }
+
+  return data;
+
+}
+
 export async function apiUpdateMilestone(
   projectId: string,
-  milestoneIdOrPayload: string | { milestoneId: string; status: string; note?: string; photo?: string },
+  milestoneIdOrPayload: string | { milestoneId: string; status: string; note?: string; photo?: string; photos?: string[]; evidenceItems?: ApiEvidenceItem[] },
   status?: string,
   note?: string,
   photo?: string
@@ -397,6 +478,7 @@ export async function apiUpdateMilestone(
     body: JSON.stringify(body),
   });
 }
+
 
 export async function apiFlagDelay(projectId: string, reason: string, note?: string): Promise<{ project: ApiProject }> {
   const token = getToken();

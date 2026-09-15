@@ -102,6 +102,18 @@ export interface Project {
   category: string;
 }
 
+export interface ProjectEvidenceItem {
+  photoUrl: string;
+  originalFilename?: string;
+  validationStatus: 'LIKELY_REAL' | 'LIKELY_AI_GENERATED' | 'UNCERTAIN';
+  validationConfidence: number;
+  authenticityScore?: number;
+  validatedAt: string;
+  uploadedAt: string;
+  analysisReason?: string;
+  detectedFeatures?: string[];
+}
+
 export interface Milestone {
   id: string;
   label: string;
@@ -109,7 +121,10 @@ export interface Milestone {
   timestamp?: string;
   note?: string;
   photo?: string;
+  photos?: string[];
+  evidenceItems?: ProjectEvidenceItem[];
 }
+
 
 export interface ChatMessage {
   id: string;

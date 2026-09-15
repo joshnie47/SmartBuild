@@ -9,6 +9,9 @@ import { Bid } from '../models/Bid';
 import { User } from '../models/User';
 import { ContractorProfile, IPortfolioItem } from '../models/ContractorProfile';
 import { Notification } from '../models/Notification';
+import { getCategoryStages } from '../utils/trackingStages';
+import { detectImageAuthenticity } from '../services/aiImageDetectionService';
+
 
 export const CATEGORIES = [
   'Civil Construction', 'Residential Construction', 'Commercial Construction',
@@ -59,6 +62,32 @@ const upload = multer({
   fileFilter,
   limits: { fileSize: Math.max(MAX_IMAGE_SIZE, MAX_PDF_SIZE) },
 });
+
+const uploadMemory = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (ALLOWED_IMAGE_TYPES.includes(file.mimetype) && ALLOWED_IMAGE_EXTS.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Invalid image type: ${file.originalname}. Only JPG, PNG, WEBP allowed.`));
+    }
+  },
+  limits: { fileSize: MAX_IMAGE_SIZE },
+});
+
+function saveEvidenceBufferToUploads(buffer: Buffer, originalname: string): { filename: string; url: string } {
+  const ext = path.extname(originalname).toLowerCase() || '.jpg';
+  const uniqueName = `evidence-${Date.now()}-${Math.round(Math.random() * 1e6)}${ext}`;
+  const filePath = path.join(UPLOADS_DIR, uniqueName);
+  fs.writeFileSync(filePath, buffer);
+  const port = process.env.PORT || 5000;
+  return {
+    filename: uniqueName,
+    url: `http://localhost:${port}/uploads/${uniqueName}`,
+  };
+}
+
 
 const uploadFields = upload.fields([
   { name: 'images', maxCount: 5 },
@@ -590,6 +619,7 @@ router.post('/:id/select-contractor', protect, async (req: AuthRequest, res: Res
     project.selectedContractorId = new mongoose.Types.ObjectId(selectedContractorId);
     project.selectedBidId = winningBid._id as mongoose.Types.ObjectId;
     project.status = 'IN_PROGRESS';
+    project.milestones = getCategoryStages(project.category);
     await project.save();
 
     // Mark winning bid as ACCEPTED and other bids as REJECTED
@@ -619,11 +649,139 @@ router.post('/:id/select-contractor', protect, async (req: AuthRequest, res: Res
   }
 });
 
-// PATCH /api/projects/:id/milestone — Contractor updates a milestone
+// POST /api/projects/:id/validate-evidence — Validate and save project proof photos
+router.post('/:id/validate-evidence', protect, uploadMemory.array('photos', 5), async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const files = req.files as Express.Multer.File[] | undefined;
+    const { images } = req.body;
+
+    const project = await Project.findById(id);
+    if (!project) {
+      res.status(404).json({ message: 'Project not found.' });
+      return;
+    }
+
+    if (!project.selectedContractorId || project.selectedContractorId.toString() !== req.userId) {
+      res.status(403).json({ message: 'Only the assigned contractor can upload project evidence.' });
+      return;
+    }
+
+    const itemsToProcess: Array<{ buffer?: Buffer; filename?: string; mimeType?: string; url?: string; base64?: string }> = [];
+
+    if (files && files.length > 0) {
+      for (const f of files) {
+        itemsToProcess.push({
+          buffer: f.buffer,
+          filename: f.originalname,
+          mimeType: f.mimetype,
+        });
+      }
+    } else if (Array.isArray(images) && images.length > 0) {
+      for (const img of images) {
+        if (typeof img === 'string') {
+          itemsToProcess.push({
+            base64: img.startsWith('data:') ? img : undefined,
+            url: img.startsWith('http') ? img : undefined,
+          });
+        }
+      }
+    } else if (req.body.image && typeof req.body.image === 'string') {
+      const img = req.body.image;
+      itemsToProcess.push({
+        base64: img.startsWith('data:') ? img : undefined,
+        url: img.startsWith('http') ? img : undefined,
+      });
+    }
+
+    if (itemsToProcess.length === 0) {
+      res.status(400).json({ message: 'At least one photo file or image data is required for validation.' });
+      return;
+    }
+
+    const results = [];
+
+    for (const item of itemsToProcess) {
+      let detectionResult;
+      try {
+        detectionResult = await detectImageAuthenticity({
+          buffer: item.buffer,
+          mimeType: item.mimeType,
+          filename: item.filename,
+          url: item.url,
+          base64: item.base64,
+        });
+      } catch (err: unknown) {
+        console.error('[validate-evidence] AI detection service error:', err);
+        res.status(500).json({
+          message: 'Unable to verify this photo right now. Please try again.',
+          error: err instanceof Error ? err.message : 'AI service unavailable',
+        });
+        return;
+      }
+
+      if (detectionResult.aiClassification === 'LIKELY_AI_GENERATED') {
+        results.push({
+          isAiGenerated: true,
+          validationStatus: 'LIKELY_AI_GENERATED',
+          aiConfidence: detectionResult.aiConfidence,
+          authenticityScore: detectionResult.authenticityScore,
+          analysisReason: detectionResult.analysisReason,
+          detectedFeatures: detectionResult.detectedFeatures,
+          message: 'AI-generated or manipulated image detected. This photo cannot be used as project proof. Please upload a genuine site photo.',
+        });
+      } else {
+        let imageUrl = item.url || '';
+        let savedFilename = item.filename || 'site-photo.jpg';
+
+        if (item.buffer) {
+          const saved = saveEvidenceBufferToUploads(item.buffer, item.filename || 'site-photo.jpg');
+          imageUrl = saved.url;
+          savedFilename = saved.filename;
+        } else if (item.base64) {
+          const pureBase64 = item.base64.includes(',') ? item.base64.split(',')[1] : item.base64;
+          const buf = Buffer.from(pureBase64, 'base64');
+          const saved = saveEvidenceBufferToUploads(buf, 'site-photo.jpg');
+          imageUrl = saved.url;
+          savedFilename = saved.filename;
+        }
+
+        const evidenceItem = {
+          photoUrl: imageUrl,
+          originalFilename: savedFilename,
+          validationStatus: detectionResult.aiClassification,
+          validationConfidence: detectionResult.aiConfidence,
+          authenticityScore: detectionResult.authenticityScore,
+          validatedAt: new Date().toISOString(),
+          uploadedAt: new Date().toISOString(),
+          analysisReason: detectionResult.analysisReason,
+          detectedFeatures: detectionResult.detectedFeatures,
+        };
+
+        results.push({
+          isAiGenerated: false,
+          photoUrl: imageUrl,
+          evidenceItem,
+          message: 'Photo verified successfully.',
+        });
+      }
+    }
+
+    res.json({
+      message: 'Evidence validation completed.',
+      results,
+    });
+  } catch (err) {
+    console.error('Error validating project evidence:', err);
+    res.status(500).json({ message: 'Server error validating project evidence.' });
+  }
+});
+
+// PATCH /api/projects/:id/milestone — Contractor completes the current milestone stage
 router.patch('/:id/milestone', protect, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { milestoneId, status, note, photo } = req.body;
+    const { milestoneId, note, photo, photos, evidenceItems } = req.body;
 
     const project = await Project.findById(id);
     if (!project) {
@@ -637,16 +795,70 @@ router.patch('/:id/milestone', protect, async (req: AuthRequest, res: Response) 
       return;
     }
 
-    const milestoneIndex = project.milestones.findIndex((m) => m.id === milestoneId);
-    if (milestoneIndex === -1) {
-      res.status(404).json({ message: 'Milestone not found in project.' });
+    if (project.status === 'COMPLETED' || project.status === 'CANCELLED') {
+      res.status(400).json({ message: `Project is already ${project.status.toLowerCase()}.` });
       return;
     }
 
-    if (status) project.milestones[milestoneIndex].status = status;
-    if (note !== undefined) project.milestones[milestoneIndex].note = note;
-    if (photo !== undefined) project.milestones[milestoneIndex].photo = photo;
-    project.milestones[milestoneIndex].timestamp = new Date().toLocaleDateString('en-IN', {
+    // Server-side check: Ensure no attached evidence item is AI-generated
+    if (Array.isArray(evidenceItems)) {
+      const hasAi = evidenceItems.some((e: any) => e.validationStatus === 'LIKELY_AI_GENERATED');
+      if (hasAi) {
+        res.status(400).json({ message: 'Cannot attach AI-generated photos as project proof. Please upload genuine site photos.' });
+        return;
+      }
+    }
+
+    // Ensure milestones exist
+    if (!project.milestones || project.milestones.length === 0) {
+      project.milestones = getCategoryStages(project.category);
+    }
+
+    // Find current active stage
+    let currentIdx = project.milestones.findIndex((m) => m.status === 'current');
+    if (currentIdx === -1) {
+      currentIdx = project.milestones.findIndex((m) => m.status !== 'completed');
+    }
+    if (currentIdx === -1) {
+      res.status(400).json({ message: 'All project stages have already been completed.' });
+      return;
+    }
+
+    // If a specific milestoneId was provided, ensure it matches the current active stage
+    if (milestoneId && project.milestones[currentIdx].id !== milestoneId) {
+      const targetIdx = project.milestones.findIndex((m) => m.id === milestoneId);
+      if (targetIdx !== -1 && project.milestones[targetIdx].status === 'completed') {
+        res.status(400).json({ message: 'This stage has already been completed.' });
+        return;
+      }
+      if (targetIdx > currentIdx) {
+        res.status(400).json({ message: 'Cannot skip stages. You can only mark the current active stage as completed.' });
+        return;
+      }
+    }
+
+    const currentStage = project.milestones[currentIdx];
+
+    // Mark current stage as completed
+    currentStage.status = 'completed';
+    if (note !== undefined && note.trim() !== '') currentStage.note = note.trim();
+    if (photo !== undefined && photo.trim() !== '') currentStage.photo = photo.trim();
+
+    if (Array.isArray(photos) && photos.length > 0) {
+      currentStage.photos = photos;
+      if (!currentStage.photo) currentStage.photo = photos[0];
+    }
+
+    if (Array.isArray(evidenceItems) && evidenceItems.length > 0) {
+      currentStage.evidenceItems = evidenceItems;
+      if (!currentStage.photos || currentStage.photos.length === 0) {
+        currentStage.photos = evidenceItems.map((e: any) => e.photoUrl);
+      }
+      if (!currentStage.photo && currentStage.photos && currentStage.photos.length > 0) {
+        currentStage.photo = currentStage.photos[0];
+      }
+    }
+    currentStage.timestamp = new Date().toLocaleDateString('en-IN', {
       day: 'numeric',
       month: 'short',
       year: 'numeric',
@@ -654,26 +866,59 @@ router.patch('/:id/milestone', protect, async (req: AuthRequest, res: Response) 
       minute: '2-digit',
     });
 
-    // Auto-advance next milestone if completed
-    if (status === 'completed' && milestoneIndex < project.milestones.length - 1) {
-      if (project.milestones[milestoneIndex + 1].status === 'upcoming') {
-        project.milestones[milestoneIndex + 1].status = 'current';
+    const isFinalStage = currentIdx === project.milestones.length - 1;
+    let nextStageLabel = '';
+
+    if (!isFinalStage) {
+      // Automatically advance next stage to 'current'
+      project.milestones[currentIdx + 1].status = 'current';
+      nextStageLabel = project.milestones[currentIdx + 1].label;
+    } else {
+      // Final stage completed -> Complete the overall project
+      project.status = 'COMPLETED';
+
+      // Increment completed projects counter for contractor
+      if (project.selectedContractorId) {
+        await User.findByIdAndUpdate(project.selectedContractorId, { $inc: { completedProjects: 1 } });
+        await ContractorProfile.findOneAndUpdate({ userId: project.selectedContractorId }, { $inc: { completedProjects: 1 } });
       }
     }
 
     await project.save();
 
-    // Notify client
-    await Notification.create({
-      recipientId: project.clientId,
-      senderId: req.userId,
-      title: 'Project Progress Update',
-      message: `Stage "${project.milestones[milestoneIndex].label}" updated to ${status}.`,
-      type: 'PROGRESS_UPDATED',
-      projectId: project._id,
-    });
+    // Fetch contractor name for notification
+    const contractorUser = await User.findById(req.userId);
+    const contractorName = contractorUser?.fullName || 'Contractor';
 
-    res.json({ message: 'Milestone updated successfully.', project });
+    if (isFinalStage) {
+      // Final Project Completion Notification to Client
+      await Notification.create({
+        recipientId: project.clientId,
+        senderId: req.userId,
+        title: 'Project Completed! 🎉',
+        message: `The final stage "${currentStage.label}" for "${project.title}" has been completed by ${contractorName}. Your project is now complete! Please leave a review.`,
+        type: 'COMPLETED',
+        projectId: project._id,
+      });
+    } else {
+      // Stage Completion Notification to Client
+      await Notification.create({
+        recipientId: project.clientId,
+        senderId: req.userId,
+        title: 'Project Stage Completed',
+        message: `Stage "${currentStage.label}" for "${project.title}" has been completed by ${contractorName}. Next stage: "${nextStageLabel}".`,
+        type: 'PROGRESS_UPDATED',
+        projectId: project._id,
+      });
+    }
+
+    res.json({
+      message: isFinalStage
+        ? 'Final stage completed! Project is now 100% completed.'
+        : `Stage "${currentStage.label}" completed. Next stage "${nextStageLabel}" is now active.`,
+      project,
+      isFinalStage,
+    });
   } catch (err) {
     console.error('Error updating milestone:', err);
     res.status(500).json({ message: 'Server error updating milestone.' });

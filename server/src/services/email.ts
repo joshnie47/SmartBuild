@@ -29,16 +29,16 @@ export function maskEmail(email: string): string {
 function createTransporter() {
   const host = process.env.SMTP_HOST || 'smtp.gmail.com';
   const port = parseInt(process.env.SMTP_PORT || '587', 10);
-  const user = process.env.SMTP_USER || process.env.GMAIL_USER;
-  const pass = process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD;
+  const user = process.env.SMTP_USER || process.env.EMAIL_USER || process.env.GMAIL_USER;
+  const pass = process.env.SMTP_PASS || process.env.EMAIL_PASS || process.env.GMAIL_APP_PASSWORD;
   const secure = process.env.SMTP_SECURE === 'true' || port === 465;
 
-  if (user && pass) {
+  if (user && pass && user.trim() !== '' && pass.trim() !== '' && !user.includes('your_email')) {
     return nodemailer.createTransport({
       host,
       port,
       secure,
-      auth: { user, pass },
+      auth: { user: user.trim(), pass: pass.trim() },
       tls: { rejectUnauthorized: false },
     });
   }

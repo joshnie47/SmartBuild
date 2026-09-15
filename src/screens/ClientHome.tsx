@@ -137,6 +137,13 @@ export function ClientHome({
             ) : (
               projects.map((p) => {
                 const { badgeStatus, label } = projectBadge(p.status);
+                const contractorObj = typeof p.selectedContractorId === 'object' ? p.selectedContractorId as any : null;
+                const contractorName = contractorObj?.fullName;
+                const currentStage = p.milestones?.find((m) => m.status === 'current');
+                const completedCount = p.milestones?.filter((m) => m.status === 'completed').length || 0;
+                const totalStages = p.milestones?.length || 5;
+                const progressPct = Math.round((completedCount / totalStages) * 100);
+
                 return (
                   <button
                     key={p._id}
@@ -149,21 +156,37 @@ export function ClientHome({
                           {p.title}
                         </h3>
                         <StatusBadge status={badgeStatus} label={label} />
-                        <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
-                          (p.bidsCount || 0) > 0
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-gray-100 text-gray-500'
-                        }`}>
-                          {(p.bidsCount || 0) === 1
-                            ? t(locale, 'oneBidReceived') || '1 Bid Received'
-                            : (p.bidsCount || 0) === 0
-                            ? t(locale, 'zeroBidsReceived') || '0 Bids Received'
-                            : t(locale, 'bidsReceivedCount').replace('{count}', String(p.bidsCount || 0))}
-                        </span>
+                        
+                        {p.status === 'OPEN' ? (
+                          <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+                            (p.bidsCount || 0) > 0
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-gray-100 text-gray-500'
+                          }`}>
+                            {(p.bidsCount || 0) === 1
+                              ? t(locale, 'oneBidReceived') || '1 Bid Received'
+                              : (p.bidsCount || 0) === 0
+                              ? t(locale, 'zeroBidsReceived') || '0 Bids Received'
+                              : t(locale, 'bidsReceivedCount').replace('{count}', String(p.bidsCount || 0))}
+                          </span>
+                        ) : p.status === 'COMPLETED' ? (
+                          <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
+                            100% Completed
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-800">
+                            Stage: {currentStage?.label || 'Site Visit'} ({progressPct}%)
+                          </span>
+                        )}
                       </div>
                       <p className="mt-1 text-xs text-gray-500">
                         {p.category} · ₹{p.budget.toLocaleString('en-IN')} · {p.location}
                       </p>
+                      {contractorName && (
+                        <p className="mt-0.5 text-xs font-medium text-navy-600">
+                          👷 Contractor: {contractorName}
+                        </p>
+                      )}
                       <p className="mt-0.5 text-xs text-gray-400">
                         ⏱️ {p.timeline}
                       </p>

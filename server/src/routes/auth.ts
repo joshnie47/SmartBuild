@@ -347,6 +347,18 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
       return;
     }
 
+    // Rate-limiting check: enforce 60-second cooldown between OTP requests
+    const lastToken = await PasswordResetToken.findOne({
+      userId: user._id,
+      purpose: 'password-reset',
+    }).sort({ createdAt: -1 });
+
+    if (lastToken && (Date.now() - new Date(lastToken.createdAt).getTime()) < 60 * 1000) {
+      const waitSeconds = Math.ceil((60 * 1000 - (Date.now() - new Date(lastToken.createdAt).getTime())) / 1000);
+      res.status(429).json({ message: `Please wait ${waitSeconds} seconds before requesting another verification code.` });
+      return;
+    }
+
     // Invalidate any existing unused tokens for this user/purpose
     await PasswordResetToken.deleteMany({ userId: user._id, purpose: 'password-reset', used: false });
 
@@ -510,6 +522,18 @@ router.post('/forgot-pin', async (req: Request, res: Response) => {
 
     const targetEmail = user.email.toLowerCase().trim();
     const maskedEmail = targetEmail.replace(/^(.{2})(.*)(@.*)$/, (_, a, b, c) => a + '*'.repeat(Math.min(b.length, 5)) + c);
+
+    // Rate-limiting check: enforce 60-second cooldown between OTP requests
+    const lastToken = await PasswordResetToken.findOne({
+      userId: user._id,
+      purpose: 'pin-reset',
+    }).sort({ createdAt: -1 });
+
+    if (lastToken && (Date.now() - new Date(lastToken.createdAt).getTime()) < 60 * 1000) {
+      const waitSeconds = Math.ceil((60 * 1000 - (Date.now() - new Date(lastToken.createdAt).getTime())) / 1000);
+      res.status(429).json({ message: `Please wait ${waitSeconds} seconds before requesting another verification code.` });
+      return;
+    }
 
     // Invalidate any existing unused tokens for this user/purpose
     await PasswordResetToken.deleteMany({ userId: user._id, purpose: 'pin-reset', used: false });

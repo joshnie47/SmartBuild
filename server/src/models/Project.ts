@@ -1,5 +1,17 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
+export interface IEvidenceItem {
+  photoUrl: string;
+  originalFilename?: string;
+  validationStatus: 'LIKELY_REAL' | 'LIKELY_AI_GENERATED' | 'UNCERTAIN';
+  validationConfidence: number;
+  authenticityScore?: number;
+  validatedAt: string;
+  uploadedAt: string;
+  analysisReason?: string;
+  detectedFeatures?: string[];
+}
+
 export interface IProjectMilestone {
   id: string;
   label: string;
@@ -7,7 +19,10 @@ export interface IProjectMilestone {
   timestamp?: string;
   note?: string;
   photo?: string;
+  photos?: string[];
+  evidenceItems?: IEvidenceItem[];
 }
+
 
 export interface IProjectDelayFlag {
   flagged: boolean;
@@ -130,6 +145,23 @@ const ProjectSchema = new Schema<IProject>(
           timestamp: { type: String },
           note: { type: String },
           photo: { type: String },
+          photos: { type: [String], default: [] },
+          evidenceItems: {
+            type: [
+              {
+                photoUrl: { type: String, required: true },
+                originalFilename: { type: String },
+                validationStatus: { type: String, required: true },
+                validationConfidence: { type: Number, required: true },
+                authenticityScore: { type: Number },
+                validatedAt: { type: String },
+                uploadedAt: { type: String },
+                analysisReason: { type: String },
+                detectedFeatures: { type: [String], default: [] },
+              },
+            ],
+            default: [],
+          },
         },
       ],
       default: () => DEFAULT_MILESTONES,

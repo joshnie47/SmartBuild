@@ -95,6 +95,29 @@ export function AuthScreen({
   const [pinSuccess, setPinSuccess] = useState('');
   const [pinLoading, setPinLoading] = useState(false);
 
+  // Resend OTP Cooldown & Banner States
+  const [fpResendCooldown, setFpResendCooldown] = useState(0);
+  const [fpResendBanner, setFpResendBanner] = useState('');
+  const [pinResendCooldown, setPinResendCooldown] = useState(0);
+  const [pinResendBanner, setPinResendBanner] = useState('');
+
+  // Countdown timers for OTP resend
+  useEffect(() => {
+    let timer: any;
+    if (fpResendCooldown > 0) {
+      timer = setInterval(() => setFpResendCooldown((prev) => prev - 1), 1000);
+    }
+    return () => clearInterval(timer);
+  }, [fpResendCooldown]);
+
+  useEffect(() => {
+    let timer: any;
+    if (pinResendCooldown > 0) {
+      timer = setInterval(() => setPinResendCooldown((prev) => prev - 1), 1000);
+    }
+    return () => clearInterval(timer);
+  }, [pinResendCooldown]);
+
   // Clear errors when switching modes or methods
   useEffect(() => {
     setGeneralError('');
@@ -357,6 +380,8 @@ export function AuthScreen({
     setFpResetToken('');
     setFpShowNewPassword(false);
     setFpShowConfirmPassword(false);
+    setFpResendCooldown(0);
+    setFpResendBanner('');
     setShowForgotPasswordModal(true);
   };
 
@@ -366,6 +391,7 @@ export function AuthScreen({
 
   const handleFpSendCode = async () => {
     setFpError('');
+    setFpResendBanner('');
     if (!fpEmail.trim() || !isValidEmail(fpEmail)) {
       setFpError(t(locale, 'errValidEmail'));
       return;
@@ -374,8 +400,29 @@ export function AuthScreen({
     try {
       await apiForgotPassword(fpEmail.trim().toLowerCase());
       setFpStep(2);
+      setFpResendCooldown(60);
     } catch (err) {
       setFpError(err instanceof Error ? err.message : 'Failed to send reset code. Please try again.');
+    } finally {
+      setFpLoading(false);
+    }
+  };
+
+  const handleFpResendCode = async () => {
+    if (fpResendCooldown > 0 || fpLoading) return;
+    setFpError('');
+    setFpResendBanner('');
+    if (!fpEmail.trim() || !isValidEmail(fpEmail)) {
+      setFpError(t(locale, 'errValidEmail'));
+      return;
+    }
+    setFpLoading(true);
+    try {
+      await apiForgotPassword(fpEmail.trim().toLowerCase());
+      setFpResendCooldown(60);
+      setFpResendBanner('A new 6-digit verification code has been sent to your email.');
+    } catch (err) {
+      setFpError(err instanceof Error ? err.message : 'Failed to resend code. Please try again.');
     } finally {
       setFpLoading(false);
     }
@@ -431,6 +478,8 @@ export function AuthScreen({
     setPinError2('');
     setPinSuccess('');
     setPinShowNewPin(false);
+    setPinResendCooldown(0);
+    setPinResendBanner('');
     setShowForgotPinModal(true);
   };
 
@@ -440,6 +489,7 @@ export function AuthScreen({
 
   const handlePinSendCode = async () => {
     setPinError2('');
+    setPinResendBanner('');
     const input = pinIdentifier.trim();
     if (!input) {
       setPinError2('Please enter your phone number or registered email.');
@@ -453,8 +503,34 @@ export function AuthScreen({
       if (res.email) setPinEmail(res.email);
       if (res.maskedEmail) setPinMaskedEmail(res.maskedEmail);
       setPinStep(2);
+      setPinResendCooldown(60);
     } catch (err) {
       setPinError2(err instanceof Error ? err.message : 'Failed to send reset code. Please try again.');
+    } finally {
+      setPinLoading(false);
+    }
+  };
+
+  const handlePinResendCode = async () => {
+    if (pinResendCooldown > 0 || pinLoading) return;
+    setPinError2('');
+    setPinResendBanner('');
+    const input = pinIdentifier.trim();
+    if (!input) {
+      setPinError2('Please enter your phone number or registered email.');
+      return;
+    }
+    setPinLoading(true);
+    try {
+      const isEmail = isValidEmail(input);
+      const payload = isEmail ? { email: input.toLowerCase() } : { phone: input };
+      const res = await apiForgotPin(payload);
+      if (res.email) setPinEmail(res.email);
+      if (res.maskedEmail) setPinMaskedEmail(res.maskedEmail);
+      setPinResendCooldown(60);
+      setPinResendBanner('A new 6-digit verification code has been sent to your registered email.');
+    } catch (err) {
+      setPinError2(err instanceof Error ? err.message : 'Failed to resend code. Please try again.');
     } finally {
       setPinLoading(false);
     }
@@ -1023,6 +1099,7 @@ export function AuthScreen({
                         className="w-full bg-transparent text-sm font-mono tracking-widest text-navy-700 outline-none"
                       />
                     </div>
+                    {fpResendBanner && <p className="rounded-lg bg-emerald-50 p-2 text-xs font-medium text-emerald-700">{fpResendBanner}</p>}
                     {fpError && <p className="text-xs text-red-500">{fpError}</p>}
                     <button
                       type="submit"
@@ -1031,8 +1108,13 @@ export function AuthScreen({
                     >
                       {fpLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : t(locale, 'verifyCode')}
                     </button>
-                    <button type="button" onClick={() => { setFpStep(1); setFpOtp(''); setFpError(''); }} className="flex w-full items-center justify-center gap-1 text-xs text-gray-400 hover:text-navy-600">
-                      <ArrowLeft className="h-3 w-3" /> Resend code
+                    <button
+                      type="button"
+                      disabled={fpLoading || fpResendCooldown > 0}
+                      onClick={handleFpResendCode}
+                      className="flex w-full items-center justify-center gap-1 text-xs font-medium text-navy-600 hover:text-navy-800 disabled:opacity-50"
+                    >
+                      {fpResendCooldown > 0 ? `Resend code in ${fpResendCooldown}s` : 'Resend code'}
                     </button>
                   </form>
                 )}
@@ -1167,6 +1249,7 @@ export function AuthScreen({
                         className="w-full bg-transparent text-sm font-mono tracking-widest text-navy-700 outline-none"
                       />
                     </div>
+                    {pinResendBanner && <p className="rounded-lg bg-emerald-50 p-2 text-xs font-medium text-emerald-700">{pinResendBanner}</p>}
                     {pinError2 && <p className="text-xs text-red-500">{pinError2}</p>}
                     <button
                       type="submit"
@@ -1175,8 +1258,13 @@ export function AuthScreen({
                     >
                       {pinLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Verify Code'}
                     </button>
-                    <button type="button" onClick={() => { setPinStep(1); setPinOtp(''); setPinError2(''); }} className="flex w-full items-center justify-center gap-1 text-xs text-gray-400 hover:text-navy-600">
-                      <ArrowLeft className="h-3 w-3" /> Resend code
+                    <button
+                      type="button"
+                      disabled={pinLoading || pinResendCooldown > 0}
+                      onClick={handlePinResendCode}
+                      className="flex w-full items-center justify-center gap-1 text-xs font-medium text-navy-600 hover:text-navy-800 disabled:opacity-50"
+                    >
+                      {pinResendCooldown > 0 ? `Resend code in ${pinResendCooldown}s` : 'Resend code'}
                     </button>
                   </form>
                 )}
