@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { BadgeCheck, Camera, Edit3, Plus, MapPin, Users, Loader2, Save, X, Upload, Sparkles, Trash2, Info, ShieldCheck, CheckCircle2, ShieldAlert, AlertTriangle } from 'lucide-react';
 import { TopNav } from '../components/TopNav';
 import { MicButton, StarRating } from '../components/ui';
-import type { ScreenId, PortfolioItem, PortfolioAuthenticity, UploadBatchItem } from '../types';
+import type { ScreenId, PortfolioItem, PortfolioAuthenticity, UploadBatchItem, DocumentVerificationDetails } from '../types';
 import { useLocale } from '../i18n/LocaleContext';
 import { t } from '../i18n';
 import {
@@ -93,6 +93,12 @@ export function ContractorProfile({ onNavigate }: { onNavigate: (id: ScreenId) =
   const [draftAbout, setDraftAbout] = useState('');
   const [draftTeamSize, setDraftTeamSize] = useState(1);
 
+  const [docVerification, setDocVerification] = useState<DocumentVerificationDetails | null>(null);
+  const [aadhaarNum, setAadhaarNum] = useState('');
+  const [companyPanNum, setCompanyPanNum] = useState('');
+  const [aadhaarDocUrl, setAadhaarDocUrl] = useState('');
+  const [companyPanDocUrl, setCompanyPanDocUrl] = useState('');
+
   const fetchProfile = async () => {
     try {
       setLoading(true);
@@ -117,6 +123,11 @@ export function ContractorProfile({ onNavigate }: { onNavigate: (id: ScreenId) =
         setRating(p.averageRating || 4.8);
         setTotalReviews(p.totalReviews || 0);
         setCompletedProjects(p.completedProjects || 0);
+        setDocVerification(p.documentVerification || null);
+        setAadhaarNum(p.aadhaarNumber || '');
+        setCompanyPanNum(p.companyPanNumber || '');
+        setAadhaarDocUrl(p.aadhaarDocumentUrl || '');
+        setCompanyPanDocUrl(p.companyPanDocumentUrl || '');
 
         if (Array.isArray(p.portfolioItems) && p.portfolioItems.length > 0) {
           setPortfolioItems(p.portfolioItems);
@@ -556,6 +567,78 @@ export function ContractorProfile({ onNavigate }: { onNavigate: (id: ScreenId) =
           <p className="text-sm text-gray-600 rounded-lg bg-gray-50 p-3 border border-gray-100">
             {about || `Experienced contractor in ${primaryTrade} with ${experienceYears} years of work experience in ${city}.`}
           </p>
+        </div>
+
+        {/* Document Verification Card */}
+        <div className="mt-5 rounded-xl border border-gray-200 bg-white p-4 shadow-sm space-y-3">
+          <div className="flex items-center justify-between border-b pb-2.5">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-indigo-600" />
+              <div>
+                <h3 className="text-sm font-bold text-navy-800">Automated Document Verification</h3>
+                <p className="text-[11px] text-gray-500">OCR pattern extraction & format consistency checks</p>
+              </div>
+            </div>
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-bold border ${
+                docVerification?.verificationStatus === 'AUTOMATED_VERIFICATION_PASSED'
+                  ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                  : docVerification?.verificationStatus === 'VERIFICATION_REQUIRED'
+                  ? 'bg-amber-100 text-amber-800 border-amber-300'
+                  : 'bg-red-100 text-red-800 border-red-300'
+              }`}
+            >
+              {docVerification?.verificationStatus === 'AUTOMATED_VERIFICATION_PASSED'
+                ? '✓ VERIFIED / PASSED'
+                : docVerification?.verificationStatus === 'VERIFICATION_REQUIRED'
+                ? '⚠️ VERIFICATION REQUIRED'
+                : '❌ VERIFICATION FAILED'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="rounded bg-gray-50 p-2.5 border border-gray-100">
+              <span className="text-gray-500 block text-[10px]">Aadhaar Number</span>
+              <span className="font-mono font-semibold text-navy-900">{aadhaarNum || 'Not Provided'}</span>
+            </div>
+            <div className="rounded bg-gray-50 p-2.5 border border-gray-100">
+              <span className="text-gray-500 block text-[10px]">Company PAN Number</span>
+              <span className="font-mono font-semibold text-navy-900">{companyPanNum || 'Not Provided'}</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="flex items-center justify-between rounded bg-gray-50 p-2 border border-gray-100">
+              <span className="text-gray-600">Aadhaar Format:</span>
+              <span className={docVerification?.aadhaarFormatValid ? 'font-bold text-emerald-600' : 'font-bold text-amber-600'}>
+                {docVerification?.aadhaarFormatValid ? '✓ Valid' : '⚠️ Pending / Invalid'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between rounded bg-gray-50 p-2 border border-gray-100">
+              <span className="text-gray-600">Company PAN Format:</span>
+              <span className={docVerification?.panFormatValid ? 'font-bold text-emerald-600' : 'font-bold text-amber-600'}>
+                {docVerification?.panFormatValid ? '✓ Valid' : '⚠️ Pending / Invalid'}
+              </span>
+            </div>
+          </div>
+
+          {docVerification?.mismatchFlags && docVerification.mismatchFlags.length > 0 && (
+            <div className="rounded-lg bg-amber-50 p-2.5 text-[11px] text-amber-900 border border-amber-200">
+              <p className="font-semibold mb-1">Flagged Review Items:</p>
+              <ul className="list-disc pl-4 space-y-0.5">
+                {docVerification.mismatchFlags.map((flag: string, idx: number) => (
+                  <li key={idx}>{flag}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="flex items-start gap-1.5 rounded-lg bg-gray-50 p-2 text-[10px] text-gray-500 border border-gray-100">
+            <Info className="h-3.5 w-3.5 text-gray-400 shrink-0 mt-0.5" />
+            <span>
+              Disclaimer: Verification is based on OCR document scanning, pattern matching, format checking, and profile field consistency. It does not interface with government database APIs or certify official government registration.
+            </span>
+          </div>
         </div>
 
         <div className="mt-6">

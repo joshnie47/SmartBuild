@@ -11,6 +11,8 @@ import { Review } from '../models/Review';
 import { protect, AuthRequest } from '../middleware/auth';
 import { AI_DETECTION_CONFIG } from '../config/aiDetectionConfig';
 import { detectImageAuthenticity } from '../services/aiImageDetectionService';
+import { processContractorDocumentVerification } from '../services/documentVerificationService';
+import { performOcrOnBuffer } from '../services/documentOcrService';
 
 const router = Router();
 
@@ -521,6 +523,125 @@ router.post('/portfolio/validate-image', protect, async (req: AuthRequest, res: 
   }
 });
 
+const docUploadMulter = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
+
+// ── POST /api/contractors/me/verify-documents ─────────────────────────────
+router.post(
+  '/me/verify-documents',
+  protect,
+  docUploadMulter.fields([
+    { name: 'aadhaarDoc', maxCount: 1 },
+    { name: 'companyPanDoc', maxCount: 1 },
+  ]),
+  async (req: AuthRequest, res: Response) => {
+    try {
+      if (req.userRole !== 'CONTRACTOR') {
+        res.status(403).json({ message: 'Only contractors can verify documents.' });
+        return;
+      }
+
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+      const aadhaarFile = files?.['aadhaarDoc']?.[0];
+      const panFile = files?.['companyPanDoc']?.[0];
+
+      const { aadhaarNumber, companyPanNumber, fullName, businessName } = req.body;
+
+      const user = await User.findById(req.userId);
+      if (!user) {
+        res.status(404).json({ message: 'User not found.' });
+        return;
+      }
+
+      let aadhaarDocUrl = '';
+      let companyPanDocUrl = '';
+
+      if (aadhaarFile) {
+        const saved = saveBufferToUploads(aadhaarFile.buffer, aadhaarFile.originalname);
+        aadhaarDocUrl = saved.url;
+      }
+
+      if (panFile) {
+        const saved = saveBufferToUploads(panFile.buffer, panFile.originalname);
+        companyPanDocUrl = saved.url;
+      }
+
+      const result = await processContractorDocumentVerification({
+        aadhaarNumberEntered: aadhaarNumber || '',
+        companyPanEntered: companyPanNumber || '',
+        fullName: fullName || user.fullName,
+        businessName: businessName || '',
+        aadhaarDocBuffer: aadhaarFile?.buffer,
+        aadhaarDocFilename: aadhaarFile?.originalname,
+        aadhaarDocUrl,
+        companyPanDocBuffer: panFile?.buffer,
+        companyPanDocFilename: panFile?.originalname,
+        companyPanDocUrl,
+      });
+
+      const kycStatus =
+        result.verification.verificationStatus === 'AUTOMATED_VERIFICATION_PASSED'
+          ? 'VERIFIED'
+          : 'PENDING';
+
+      const profile = await ContractorProfile.findOneAndUpdate(
+        { userId: req.userId },
+        {
+          aadhaarNumber: aadhaarNumber || '',
+          companyPanNumber: companyPanNumber || '',
+          aadhaarDocumentUrl: aadhaarDocUrl,
+          companyPanDocumentUrl: companyPanDocUrl,
+          kycDocumentUrls: [aadhaarDocUrl, companyPanDocUrl].filter(Boolean),
+          documentVerification: result.verification,
+          kycStatus,
+        },
+        { new: true, upsert: true }
+      );
+
+      await User.findByIdAndUpdate(req.userId, {
+        kycStatus,
+        isVerified: kycStatus === 'VERIFIED',
+      });
+
+      res.status(200).json({
+        message: 'Document verification completed.',
+        verification: result.verification,
+        profile,
+      });
+    } catch (err) {
+      console.error('Error verifying contractor documents:', err);
+      res.status(500).json({ message: 'Server error during document verification.' });
+    }
+  }
+);
+
+// ── POST /api/contractors/me/ocr-scan ──────────────────────────────────────
+router.post(
+  '/me/ocr-scan',
+  protect,
+  docUploadMulter.single('document'),
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const file = req.file;
+      if (!file) {
+        res.status(400).json({ message: 'Document file is required for OCR scanning.' });
+        return;
+      }
+
+      const ocrResult = await performOcrOnBuffer(file.buffer, file.originalname);
+      res.status(200).json({
+        message: 'OCR document scan completed.',
+        ocrResult,
+      });
+    } catch (err) {
+      console.error('Error performing OCR scan:', err);
+      res.status(500).json({ message: 'Server error scanning document.' });
+    }
+  }
+);
+
 // ── GET /api/contractors/profile/me ─────────────────────────────────────────
 router.get('/profile/me', protect, async (req: AuthRequest, res: Response) => {
   try {
@@ -700,6 +821,11 @@ router.post('/profile', protect, async (req: AuthRequest, res: Response) => {
       kycDocumentType,
       kycDocumentNumber,
       kycDocumentUrls,
+      aadhaarNumber,
+      companyPanNumber,
+      aadhaarDocumentUrl,
+      companyPanDocumentUrl,
+      documentVerification: inputDocVerification,
       portfolioImages,
       portfolioItems,
     } = req.body;
@@ -714,6 +840,25 @@ router.post('/profile', protect, async (req: AuthRequest, res: Response) => {
       portfolioItems,
       portfolioImages
     );
+
+    // If documentVerification object was not passed but Aadhaar / PAN numbers exist, perform verification
+    let docVerification = inputDocVerification;
+    if (!docVerification && (aadhaarNumber || companyPanNumber)) {
+      const vResult = await processContractorDocumentVerification({
+        aadhaarNumberEntered: aadhaarNumber || '',
+        companyPanEntered: companyPanNumber || '',
+        fullName: updatedName,
+        businessName: businessName?.trim() || '',
+        aadhaarDocUrl: aadhaarDocumentUrl || '',
+        companyPanDocUrl: companyPanDocumentUrl || '',
+      });
+      docVerification = vResult.verification;
+    }
+
+    const kycStatus =
+      docVerification?.verificationStatus === 'AUTOMATED_VERIFICATION_PASSED'
+        ? 'VERIFIED'
+        : user.kycStatus || 'PENDING';
 
     const profileData = {
       userId: req.userId,
@@ -730,10 +875,17 @@ router.post('/profile', protect, async (req: AuthRequest, res: Response) => {
       serviceAreas: Array.isArray(serviceAreas) ? serviceAreas : [city.trim()],
       about: about?.trim() || '',
       teamSize: Number(teamSize) || 1,
-      kycStatus: user.kycStatus || 'PENDING',
+      kycStatus,
       kycDocumentType: kycDocumentType || 'Aadhaar Card',
-      kycDocumentNumber: kycDocumentNumber?.trim() || '',
-      kycDocumentUrls: Array.isArray(kycDocumentUrls) ? kycDocumentUrls : [],
+      kycDocumentNumber: kycDocumentNumber?.trim() || aadhaarNumber?.trim() || '',
+      kycDocumentUrls: Array.isArray(kycDocumentUrls) && kycDocumentUrls.length
+        ? kycDocumentUrls
+        : [aadhaarDocumentUrl, companyPanDocumentUrl].filter(Boolean),
+      aadhaarNumber: aadhaarNumber?.trim() || '',
+      companyPanNumber: companyPanNumber?.trim() || '',
+      aadhaarDocumentUrl: aadhaarDocumentUrl?.trim() || '',
+      companyPanDocumentUrl: companyPanDocumentUrl?.trim() || '',
+      documentVerification: docVerification,
       portfolioImages: processedImages,
       portfolioItems: processedItems,
       onboardingCompleted: true,

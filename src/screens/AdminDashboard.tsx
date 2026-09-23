@@ -24,6 +24,7 @@ import {
   apiAdminDeleteContractor,
   apiAdminGetProjects,
   apiAdminDeleteProject,
+  apiAdminUpdateDocumentVerification,
   type AdminContractorItem,
   type ApiProject,
 } from '../lib/api';
@@ -99,6 +100,51 @@ export function AdminDashboard({ onNavigate }: { onNavigate: (id: ScreenId) => v
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Error updating verification');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDocVerifyAction = async (
+    id: string,
+    verificationStatus: 'AUTOMATED_VERIFICATION_PASSED' | 'VERIFICATION_REQUIRED' | 'VERIFICATION_FAILED',
+    notes?: string
+  ) => {
+    try {
+      setActionLoading(id);
+      const res = await apiAdminUpdateDocumentVerification(id, { verificationStatus, adminNotes: notes });
+      const newKycStatus =
+        verificationStatus === 'AUTOMATED_VERIFICATION_PASSED'
+          ? 'VERIFIED'
+          : verificationStatus === 'VERIFICATION_FAILED'
+          ? 'REJECTED'
+          : 'PENDING';
+      setContractors((prev) =>
+        prev.map((c) =>
+          c._id === id
+            ? {
+                ...c,
+                kycStatus: newKycStatus,
+                isVerified: newKycStatus === 'VERIFIED',
+                documentVerification: res.profile.documentVerification as any,
+              }
+            : c
+        )
+      );
+      if (selectedContractor && selectedContractor._id === id) {
+        setSelectedContractor((prev) =>
+          prev
+            ? {
+                ...prev,
+                kycStatus: newKycStatus,
+                isVerified: newKycStatus === 'VERIFIED',
+                documentVerification: res.profile.documentVerification as any,
+              }
+            : null
+        );
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error updating document verification');
     } finally {
       setActionLoading(null);
     }
@@ -678,43 +724,139 @@ export function AdminDashboard({ onNavigate }: { onNavigate: (id: ScreenId) => v
                 </div>
               )}
 
-              <div className="border-t pt-3">
-                <h4 className="text-xs font-bold uppercase text-navy-700 mb-2">Submitted KYC Documents</h4>
-                <div className="rounded-lg bg-gray-50 p-3 border">
-                  <p className="text-xs text-gray-600">
-                    <span className="font-semibold">Document:</span> {selectedContractor.kycDocumentType || 'Aadhaar Card'}
-                  </p>
-                  <p className="text-xs text-gray-600 mt-1">
-                    <span className="font-semibold">ID Number:</span> {selectedContractor.kycDocumentNumber || 'Verified in Records'}
-                  </p>
-                  <div className="mt-2 flex gap-2">
-                    <span className="rounded bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5">
-                      ✓ Document Attached & Encrypted
+              <div className="border-t pt-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-navy-700">Document Verification Breakdown</h4>
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold border ${
+                      (selectedContractor.documentVerification?.verificationStatus || 'VERIFICATION_REQUIRED') === 'AUTOMATED_VERIFICATION_PASSED'
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        : (selectedContractor.documentVerification?.verificationStatus || 'VERIFICATION_REQUIRED') === 'VERIFICATION_REQUIRED'
+                        ? 'bg-amber-100 text-amber-800 border-amber-300'
+                        : 'bg-red-100 text-red-800 border-red-300'
+                    }`}
+                  >
+                    {selectedContractor.documentVerification?.verificationStatus === 'AUTOMATED_VERIFICATION_PASSED'
+                      ? '✓ PASSED'
+                      : selectedContractor.documentVerification?.verificationStatus === 'VERIFICATION_REQUIRED'
+                      ? '⚠️ REVIEW REQUIRED'
+                      : '❌ FAILED'}
+                  </span>
+                </div>
+
+                {/* Verification Comparison Table */}
+                <div className="rounded-lg bg-gray-50 p-3 border border-gray-200 text-xs space-y-2">
+                  <div className="grid grid-cols-2 gap-2 border-b pb-2">
+                    <div>
+                      <span className="text-[10px] text-gray-400 block font-medium">Entered Aadhaar</span>
+                      <span className="font-mono font-semibold text-navy-900">{selectedContractor.aadhaarNumber || selectedContractor.kycDocumentNumber || 'Not Specified'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-gray-400 block font-medium">Extracted Aadhaar (OCR)</span>
+                      <span className="font-mono font-semibold text-navy-900">{selectedContractor.documentVerification?.aadhaarExtractedNumber || 'N/A'}</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 border-b pb-2">
+                    <div>
+                      <span className="text-[10px] text-gray-400 block font-medium">Entered Company PAN</span>
+                      <span className="font-mono font-semibold text-navy-900">{selectedContractor.companyPanNumber || 'Not Specified'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-gray-400 block font-medium">Extracted PAN (OCR)</span>
+                      <span className="font-mono font-semibold text-navy-900">{selectedContractor.documentVerification?.panExtractedNumber || 'N/A'}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] text-gray-600 pt-1">
+                    <span>Aadhaar Format Check:</span>
+                    <span className={selectedContractor.documentVerification?.aadhaarFormatValid ? 'font-bold text-emerald-600' : 'font-bold text-amber-600'}>
+                      {selectedContractor.documentVerification?.aadhaarFormatValid ? '✓ Valid (12-digit)' : '⚠️ Check Required'}
                     </span>
                   </div>
+
+                  <div className="flex items-center justify-between text-[11px] text-gray-600">
+                    <span>Company PAN Format Check:</span>
+                    <span className={selectedContractor.documentVerification?.panFormatValid ? 'font-bold text-emerald-600' : 'font-bold text-amber-600'}>
+                      {selectedContractor.documentVerification?.panFormatValid ? '✓ Valid (10-char)' : '⚠️ Check Required'}
+                    </span>
+                  </div>
+
+                  {selectedContractor.documentVerification?.ocrConfidence ? (
+                    <div className="flex items-center justify-between text-[11px] text-gray-600">
+                      <span>OCR Processing Confidence:</span>
+                      <span className="font-bold text-navy-800">{selectedContractor.documentVerification.ocrConfidence}%</span>
+                    </div>
+                  ) : null}
+                </div>
+
+                {/* Mismatch Flags */}
+                {selectedContractor.documentVerification?.mismatchFlags && selectedContractor.documentVerification.mismatchFlags.length > 0 && (
+                  <div className="rounded-lg bg-amber-50 p-2.5 text-[11px] text-amber-900 border border-amber-200">
+                    <p className="font-bold mb-1">Detected Mismatches / Flags:</p>
+                    <ul className="list-disc pl-4 space-y-0.5">
+                      {selectedContractor.documentVerification.mismatchFlags.map((flag: string, i: number) => (
+                        <li key={i}>{flag}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Uploaded Document Links */}
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {selectedContractor.aadhaarDocumentUrl && (
+                    <a
+                      href={selectedContractor.aadhaarDocumentUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 rounded bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-100 border border-indigo-200"
+                    >
+                      <Eye className="h-3 w-3" /> View Aadhaar Doc
+                    </a>
+                  )}
+                  {selectedContractor.companyPanDocumentUrl && (
+                    <a
+                      href={selectedContractor.companyPanDocumentUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 rounded bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-100 border border-indigo-200"
+                    >
+                      <Eye className="h-3 w-3" /> View Company PAN Doc
+                    </a>
+                  )}
+                </div>
+
+                <div className="rounded bg-gray-100 p-2 text-[10px] text-gray-500">
+                  <span>Note: Document verification is performed via format checks and OCR cross-matching without calling government database APIs.</span>
                 </div>
               </div>
 
-              <div className="mt-6 flex items-center justify-between border-t pt-3">
+              <div className="mt-6 flex flex-wrap items-center justify-between border-t pt-3 gap-2">
                 <button
                   onClick={() => handleDeleteContractor(selectedContractor._id, selectedContractor.fullName)}
                   className="flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-600 hover:text-white transition-colors"
                 >
-                  <Trash2 className="h-3.5 w-3.5" /> Delete Contractor
+                  <Trash2 className="h-3.5 w-3.5" /> Delete
                 </button>
 
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-1.5">
                   <button
-                    onClick={() => handleVerify(selectedContractor._id, 'REJECTED')}
-                    className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
+                    onClick={() => handleDocVerifyAction(selectedContractor._id, 'VERIFICATION_FAILED', 'Failed admin review')}
+                    className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
                   >
-                    Reject KYC
+                    Reject
                   </button>
                   <button
-                    onClick={() => handleVerify(selectedContractor._id, 'VERIFIED')}
-                    className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700"
+                    onClick={() => handleDocVerifyAction(selectedContractor._id, 'VERIFICATION_REQUIRED', 'Admin flagged for review')}
+                    className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100"
                   >
-                    Approve & Verify
+                    Flag Review
+                  </button>
+                  <button
+                    onClick={() => handleDocVerifyAction(selectedContractor._id, 'AUTOMATED_VERIFICATION_PASSED', 'Admin override approved')}
+                    className="rounded-lg bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+                  >
+                    Approve Verification
                   </button>
                 </div>
               </div>

@@ -134,6 +134,37 @@ export interface ChatMessage {
   time: string;
 }
 
+export type DocumentVerificationStatus =
+  | 'AUTOMATED_VERIFICATION_PASSED'
+  | 'VERIFICATION_REQUIRED'
+  | 'VERIFICATION_FAILED';
+
+export interface DocumentVerificationDetails {
+  verificationStatus: DocumentVerificationStatus;
+  aadhaarNumberEntered?: string;
+  companyPanEntered?: string;
+  aadhaarDocUrl?: string;
+  companyPanDocUrl?: string;
+  aadhaarExtractedNumber?: string;
+  aadhaarExtractedName?: string;
+  panExtractedNumber?: string;
+  panExtractedCompanyName?: string;
+  aadhaarFormatValid?: boolean;
+  panFormatValid?: boolean;
+  aadhaarNumberMatch?: boolean;
+  aadhaarNameMatch?: boolean;
+  panNumberMatch?: boolean;
+  panCompanyNameMatch?: boolean;
+  crossDocumentMatch?: boolean;
+  ocrConfidence?: number;
+  mismatchFlags?: string[];
+  disclaimer?: string;
+  verifiedAt?: string;
+  adminReviewed?: boolean;
+  adminReviewedAt?: string;
+  adminNotes?: string;
+}
+
 export interface ApiContractorProfile {
   _id: string;
   userId: string;
@@ -154,6 +185,11 @@ export interface ApiContractorProfile {
   kycDocumentType?: string;
   kycDocumentNumber?: string;
   kycDocumentUrls?: string[];
+  aadhaarNumber?: string;
+  companyPanNumber?: string;
+  aadhaarDocumentUrl?: string;
+  companyPanDocumentUrl?: string;
+  documentVerification?: DocumentVerificationDetails;
   portfolioImages?: string[];
   portfolioItems?: PortfolioItem[];
   isAvailable: boolean;

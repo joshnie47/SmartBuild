@@ -22,6 +22,7 @@ router.get('/contractors', async (_req: Request, res: Response) => {
         return {
           _id: c._id,
           fullName: profile?.fullName || c.fullName,
+          businessName: profile?.businessName || '',
           email: c.email || profile?.email || '',
           phone: c.phone || profile?.phone || '',
           trade: profile?.primaryTrade || c.specialization || 'Contractor',
@@ -32,8 +33,13 @@ router.get('/contractors', async (_req: Request, res: Response) => {
           serviceAreas: profile?.serviceAreas || [],
           kycStatus: profile?.kycStatus || c.kycStatus || 'PENDING',
           kycDocumentType: profile?.kycDocumentType || 'Aadhaar Card',
-          kycDocumentNumber: profile?.kycDocumentNumber || '',
+          kycDocumentNumber: profile?.kycDocumentNumber || profile?.aadhaarNumber || '',
           kycDocumentUrls: profile?.kycDocumentUrls || [],
+          aadhaarNumber: profile?.aadhaarNumber || '',
+          companyPanNumber: profile?.companyPanNumber || '',
+          aadhaarDocumentUrl: profile?.aadhaarDocumentUrl || '',
+          companyPanDocumentUrl: profile?.companyPanDocumentUrl || '',
+          documentVerification: profile?.documentVerification || null,
           isVerified: c.isVerified || profile?.kycStatus === 'VERIFIED',
           averageRating: profile?.averageRating || c.averageRating || 0,
           completedProjects: profile?.completedProjects || c.completedProjects || 0,
@@ -46,6 +52,55 @@ router.get('/contractors', async (_req: Request, res: Response) => {
   } catch (err) {
     console.error('Admin contractors fetch error:', err);
     res.status(500).json({ message: 'Server error fetching contractors for admin.' });
+  }
+});
+
+// PATCH /api/admin/contractors/:id/document-verification — admin manual override of document verification
+router.patch('/contractors/:id/document-verification', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { verificationStatus, adminNotes } = req.body;
+
+    if (!['AUTOMATED_VERIFICATION_PASSED', 'VERIFICATION_REQUIRED', 'VERIFICATION_FAILED'].includes(verificationStatus)) {
+      res.status(400).json({ message: 'Invalid verificationStatus.' });
+      return;
+    }
+
+    const isVerified = verificationStatus === 'AUTOMATED_VERIFICATION_PASSED';
+    const kycStatus = isVerified ? 'VERIFIED' : verificationStatus === 'VERIFICATION_FAILED' ? 'REJECTED' : 'PENDING';
+
+    const profile = await ContractorProfile.findOne({ userId: id });
+    if (!profile) {
+      res.status(404).json({ message: 'Contractor profile not found.' });
+      return;
+    }
+
+    const updatedVerification = {
+      ...((profile.documentVerification as any)?.toObject?.() || profile.documentVerification || {}),
+      verificationStatus,
+      adminReviewed: true,
+      adminReviewedAt: new Date(),
+      adminNotes: adminNotes || profile.documentVerification?.adminNotes || 'Admin manual review completed.',
+      disclaimer:
+        'Automated verification is based on OCR document processing, pattern extraction, format checking, and profile field cross-matching. It does not interface with government databases or verify official registration.',
+    };
+
+    profile.documentVerification = updatedVerification as any;
+    profile.kycStatus = kycStatus as any;
+    await profile.save();
+
+    await User.findByIdAndUpdate(id, {
+      kycStatus,
+      isVerified,
+    });
+
+    res.json({
+      message: `Document verification status updated to ${verificationStatus}.`,
+      profile,
+    });
+  } catch (err) {
+    console.error('Admin update document verification error:', err);
+    res.status(500).json({ message: 'Server error updating document verification.' });
   }
 });
 

@@ -679,6 +679,50 @@ export async function apiGetContractorProfileMe(): Promise<{
   });
 }
 
+export async function apiVerifyContractorDocuments(payload: {
+  aadhaarNumber: string;
+  companyPanNumber: string;
+  fullName?: string;
+  businessName?: string;
+  aadhaarFile?: File | null;
+  panFile?: File | null;
+}): Promise<{ message: string; verification: any; profile: ApiContractorProfile }> {
+  const token = getToken();
+  if (!token) throw new Error('Not authenticated.');
+
+  const formData = new FormData();
+  formData.append('aadhaarNumber', payload.aadhaarNumber);
+  formData.append('companyPanNumber', payload.companyPanNumber);
+  if (payload.fullName) formData.append('fullName', payload.fullName);
+  if (payload.businessName) formData.append('businessName', payload.businessName);
+  if (payload.aadhaarFile) formData.append('aadhaarDoc', payload.aadhaarFile);
+  if (payload.panFile) formData.append('companyPanDoc', payload.panFile);
+
+  const res = await fetch(`${BASE}/contractors/me/verify-documents`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Error processing document verification.');
+  return data;
+}
+
+export async function apiAdminUpdateDocumentVerification(
+  contractorId: string,
+  payload: { verificationStatus: string; adminNotes?: string }
+): Promise<{ message: string; profile: ApiContractorProfile }> {
+  const token = getToken();
+  if (!token) throw new Error('Not authenticated.');
+
+  return request(`/admin/contractors/${contractorId}/document-verification`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function apiSaveContractorProfile(payload: {
   fullName?: string;
   businessName?: string;
@@ -694,6 +738,11 @@ export async function apiSaveContractorProfile(payload: {
   kycDocumentType?: string;
   kycDocumentNumber?: string;
   kycDocumentUrls?: string[];
+  aadhaarNumber?: string;
+  companyPanNumber?: string;
+  aadhaarDocumentUrl?: string;
+  companyPanDocumentUrl?: string;
+  documentVerification?: any;
   portfolioImages?: string[];
   portfolioItems?: PortfolioItem[];
   isAvailable?: boolean;
@@ -849,6 +898,7 @@ export async function apiMarkAllNotificationsRead(): Promise<{ message: string }
 export interface AdminContractorItem {
   _id: string;
   fullName: string;
+  businessName?: string;
   email?: string;
   phone?: string;
   trade: string;
@@ -861,6 +911,11 @@ export interface AdminContractorItem {
   kycDocumentType?: string;
   kycDocumentNumber?: string;
   kycDocumentUrls?: string[];
+  aadhaarNumber?: string;
+  companyPanNumber?: string;
+  aadhaarDocumentUrl?: string;
+  companyPanDocumentUrl?: string;
+  documentVerification?: any;
   isVerified: boolean;
   averageRating?: number;
   completedProjects?: number;

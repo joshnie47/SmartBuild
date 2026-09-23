@@ -3,6 +3,36 @@ import mongoose, { Document, Schema } from 'mongoose';
 export type KYCStatus = 'PENDING' | 'VERIFIED' | 'REJECTED';
 export type AiClassification = 'LIKELY_REAL' | 'LIKELY_AI_GENERATED' | 'UNCERTAIN';
 export type PortfolioAuthenticity = 'LIKELY_REAL' | 'LIKELY_AI' | 'UNCERTAIN' | 'AI_GENERATED';
+export type DocumentVerificationStatus =
+  | 'AUTOMATED_VERIFICATION_PASSED'
+  | 'VERIFICATION_REQUIRED'
+  | 'VERIFICATION_FAILED';
+
+export interface IDocumentVerification {
+  verificationStatus: DocumentVerificationStatus;
+  aadhaarNumberEntered?: string;
+  companyPanEntered?: string;
+  aadhaarDocUrl?: string;
+  companyPanDocUrl?: string;
+  aadhaarExtractedNumber?: string;
+  aadhaarExtractedName?: string;
+  panExtractedNumber?: string;
+  panExtractedCompanyName?: string;
+  aadhaarFormatValid?: boolean;
+  panFormatValid?: boolean;
+  aadhaarNumberMatch?: boolean;
+  aadhaarNameMatch?: boolean;
+  panNumberMatch?: boolean;
+  panCompanyNameMatch?: boolean;
+  crossDocumentMatch?: boolean;
+  ocrConfidence?: number;
+  mismatchFlags?: string[];
+  disclaimer: string;
+  verifiedAt?: Date;
+  adminReviewed?: boolean;
+  adminReviewedAt?: Date;
+  adminNotes?: string;
+}
 
 export interface IPortfolioItem {
   imageUrl: string;
@@ -46,6 +76,11 @@ export interface IContractorProfile extends Document {
   kycDocumentType: string;
   kycDocumentNumber?: string;
   kycDocumentUrls: string[];
+  aadhaarNumber?: string;
+  companyPanNumber?: string;
+  aadhaarDocumentUrl?: string;
+  companyPanDocumentUrl?: string;
+  documentVerification?: IDocumentVerification;
   portfolioImages: string[];
   portfolioItems: IPortfolioItem[];
   isAvailable: boolean;
@@ -146,6 +181,60 @@ const ContractorProfileSchema = new Schema<IContractorProfile>(
     kycDocumentUrls: {
       type: [String],
       default: [],
+    },
+    aadhaarNumber: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    companyPanNumber: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    aadhaarDocumentUrl: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    companyPanDocumentUrl: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    documentVerification: {
+      verificationStatus: {
+        type: String,
+        enum: ['AUTOMATED_VERIFICATION_PASSED', 'VERIFICATION_REQUIRED', 'VERIFICATION_FAILED'],
+        default: 'VERIFICATION_REQUIRED',
+        index: true,
+      },
+      aadhaarNumberEntered: { type: String, default: '' },
+      companyPanEntered: { type: String, default: '' },
+      aadhaarDocUrl: { type: String, default: '' },
+      companyPanDocUrl: { type: String, default: '' },
+      aadhaarExtractedNumber: { type: String, default: '' },
+      aadhaarExtractedName: { type: String, default: '' },
+      panExtractedNumber: { type: String, default: '' },
+      panExtractedCompanyName: { type: String, default: '' },
+      aadhaarFormatValid: { type: Boolean, default: false },
+      panFormatValid: { type: Boolean, default: false },
+      aadhaarNumberMatch: { type: Boolean, default: false },
+      aadhaarNameMatch: { type: Boolean, default: false },
+      panNumberMatch: { type: Boolean, default: false },
+      panCompanyNameMatch: { type: Boolean, default: false },
+      crossDocumentMatch: { type: Boolean, default: false },
+      ocrConfidence: { type: Number, default: 0 },
+      mismatchFlags: { type: [String], default: [] },
+      disclaimer: {
+        type: String,
+        default:
+          'Automated verification is based on OCR document processing, pattern extraction, format checking, and profile field cross-matching. It does not interface with government databases or verify official registration.',
+      },
+      verifiedAt: { type: Date },
+      adminReviewed: { type: Boolean, default: false },
+      adminReviewedAt: { type: Date },
+      adminNotes: { type: String, default: '' },
     },
     portfolioImages: {
       type: [String],

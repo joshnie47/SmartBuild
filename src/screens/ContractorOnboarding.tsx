@@ -1,10 +1,10 @@
 import { useState, useRef } from 'react';
 import { ArrowRight, ArrowLeft, Upload, Check, Clock, ShieldCheck, MapPin, Users, Loader2, Plus, X, Camera, Sparkles, Info, ShieldAlert, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { TopNav } from '../components/TopNav';
-import type { ScreenId, PortfolioItem, PortfolioAuthenticity, UploadBatchItem } from '../types';
+import type { ScreenId, PortfolioItem, PortfolioAuthenticity, UploadBatchItem, DocumentVerificationDetails } from '../types';
 import { useLocale } from '../i18n/LocaleContext';
 import { t } from '../i18n';
-import { apiSaveContractorProfile, apiValidatePortfolioImage, apiAnalyzePortfolioImage, apiConfirmPortfolioAi } from '../lib/api';
+import { apiSaveContractorProfile, apiValidatePortfolioImage, apiAnalyzePortfolioImage, apiConfirmPortfolioAi, apiVerifyContractorDocuments } from '../lib/api';
 import { AiImageWarningModal, type ImageAnalysisData } from '../components/AiImageWarningModal';
 
 const SPECIALIZATIONS = [
@@ -71,6 +71,64 @@ export function ContractorOnboarding({ onNavigate }: { onNavigate: (id: ScreenId
   const [uploadedDocNames, setUploadedDocNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Document Verification States
+  const [aadhaarNumber, setAadhaarNumber] = useState('');
+  const [companyPanNumber, setCompanyPanNumber] = useState('');
+  const [aadhaarFile, setAadhaarFile] = useState<File | null>(null);
+  const [companyPanFile, setCompanyPanFile] = useState<File | null>(null);
+  const [aadhaarDocUrl, setAadhaarDocUrl] = useState('');
+  const [companyPanDocUrl, setCompanyPanDocUrl] = useState('');
+  const [verifyingDocs, setVerifyingDocs] = useState(false);
+  const [docVerificationResult, setDocVerificationResult] = useState<DocumentVerificationDetails | null>(null);
+  const aadhaarFileInputRef = useRef<HTMLInputElement>(null);
+  const panFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAadhaarFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAadhaarFile(file);
+      if (!uploadedDocNames.includes('Aadhaar Card')) {
+        setUploadedDocNames((prev) => [...prev, 'Aadhaar Card']);
+      }
+    }
+  };
+
+  const handlePanFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setCompanyPanFile(file);
+      if (!uploadedDocNames.includes('PAN Card')) {
+        setUploadedDocNames((prev) => [...prev, 'PAN Card']);
+      }
+    }
+  };
+
+  const handleRunDocumentVerification = async () => {
+    if (!aadhaarNumber.trim() && !companyPanNumber.trim()) {
+      setError('Please enter Aadhaar number (12 digits) or Company PAN number (10 chars) for verification.');
+      return;
+    }
+    setVerifyingDocs(true);
+    setError('');
+    try {
+      const res = await apiVerifyContractorDocuments({
+        aadhaarNumber: aadhaarNumber.trim(),
+        companyPanNumber: companyPanNumber.trim(),
+        businessName: businessName.trim(),
+        aadhaarFile,
+        panFile: companyPanFile,
+      });
+      setDocVerificationResult(res.verification);
+      if (res.profile?.aadhaarDocumentUrl) setAadhaarDocUrl(res.profile.aadhaarDocumentUrl);
+      if (res.profile?.companyPanDocumentUrl) setCompanyPanDocUrl(res.profile.companyPanDocumentUrl);
+    } catch (err: unknown) {
+      console.error('Doc verification error:', err);
+      setError(err instanceof Error ? err.message : 'Document verification error.');
+    } finally {
+      setVerifyingDocs(false);
+    }
+  };
 
   const toggleSpec = (s: string) => setSpecs((p) => (p.includes(s) ? p.filter((x) => x !== s) : [...p, s]));
   const toggleArea = (a: string) => setAreas((p) => (p.includes(a) ? p.filter((x) => x !== a) : [...p, a]));
@@ -334,6 +392,22 @@ export function ContractorOnboarding({ onNavigate }: { onNavigate: (id: ScreenId
         .map((item) => item.imageUrl || item.url || '')
         .filter((u): u is string => Boolean(u));
 
+      let docVerificationPayload = docVerificationResult;
+      if (!docVerificationPayload && (aadhaarNumber || companyPanNumber)) {
+        try {
+          const vRes = await apiVerifyContractorDocuments({
+            aadhaarNumber: aadhaarNumber.trim(),
+            companyPanNumber: companyPanNumber.trim(),
+            businessName: businessName.trim(),
+            aadhaarFile,
+            panFile: companyPanFile,
+          });
+          docVerificationPayload = vRes.verification;
+        } catch (err) {
+          console.warn('Document verification on submit warning:', err);
+        }
+      }
+
       await apiSaveContractorProfile({
         businessName: businessName.trim() || 'Contractor Services',
         profileImage: profilePhoto.trim() || undefined,
@@ -345,11 +419,14 @@ export function ContractorOnboarding({ onNavigate }: { onNavigate: (id: ScreenId
         serviceAreas: areas.length ? areas : [city.trim() || 'Coimbatore'],
         about: `Professional contractor providing quality ${specs.join(', ')} services in ${city}.`,
         teamSize: Number(teamSize) || 1,
-        kycDocumentType: docType,
-        kycDocumentNumber: docNumber.trim() || 'DOC-VERIFY-2026',
-        kycDocumentUrls: [
-          'https://images.pexels.com/photos/5828395/pexels-photo-5828395.jpeg?auto=compress&cs=tinysrgb&w=400',
-        ],
+        kycDocumentType: 'Aadhaar & Company PAN',
+        kycDocumentNumber: aadhaarNumber.trim() || companyPanNumber.trim() || 'DOC-VERIFY-2026',
+        kycDocumentUrls: [aadhaarDocUrl, companyPanDocUrl].filter(Boolean),
+        aadhaarNumber: aadhaarNumber.trim(),
+        companyPanNumber: companyPanNumber.trim(),
+        aadhaarDocumentUrl: aadhaarDocUrl,
+        companyPanDocumentUrl: companyPanDocUrl,
+        documentVerification: docVerificationPayload,
         portfolioImages: photoUrls,
         portfolioItems: portfolioItems,
       });
@@ -596,75 +673,202 @@ export function ContractorOnboarding({ onNavigate }: { onNavigate: (id: ScreenId
           </div>
         )}
 
-        {/* Step 2: KYC */}
+        {/* Step 2: KYC & Document Verification */}
         {step === 2 && (
           <div className="mt-6 animate-fadeIn space-y-4">
-            <div className="flex items-center gap-2 rounded-lg bg-amber-50 px-4 py-3">
-              <ShieldCheck className="h-5 w-5 text-amber-500" />
-              <p className="text-sm text-amber-600">
-                {t(locale, 'kycSecurityNote') || 'Your documents are encrypted and securely stored for Admin KYC.'}
-              </p>
+            <div className="flex items-start gap-2.5 rounded-lg bg-indigo-50/70 border border-indigo-100 px-4 py-3">
+              <ShieldCheck className="h-5 w-5 text-indigo-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-semibold text-indigo-950">Automated Document Verification Engine</p>
+                <p className="text-[11px] text-indigo-700 leading-relaxed mt-0.5">
+                  Enter your Aadhaar and Company PAN numbers and upload official document copies. Our OCR system extracts text, checks formats, and performs cross-consistency checks.
+                </p>
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            {/* Non-Government API Disclaimer Banner */}
+            <div className="flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 p-3 text-[11px] text-amber-900">
+              <Info className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-navy-600">Document Type</label>
-                <select
-                  value={docType}
-                  onChange={(e) => setDocType(e.target.value)}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-navy-700 outline-none"
-                >
-                  <option>Aadhaar Card</option>
-                  <option>PAN Card</option>
-                  <option>Contractor License</option>
-                  <option>GST Certificate</option>
-                </select>
+                <span className="font-semibold">Notice: </span>
+                Automated document verification checks format validity, OCR pattern matching, and profile field consistency. It does NOT query government database APIs or certify official government registration.
               </div>
+            </div>
+
+            {/* Form Inputs: Aadhaar Number & Company PAN Number */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-navy-600">Document / ID Number</label>
+                <label className="mb-1 block text-xs font-semibold text-navy-700">
+                  Contractor / Person Aadhaar Number <span className="text-red-500">*</span>
+                </label>
                 <input
-                  placeholder="e.g. 5432-8765-9012"
-                  value={docNumber}
-                  onChange={(e) => setDocNumber(e.target.value)}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-navy-700 outline-none"
+                  placeholder="e.g. 9876 5432 1012"
+                  value={aadhaarNumber}
+                  onChange={(e) => setAadhaarNumber(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-xs font-mono text-navy-800 placeholder-gray-400 outline-none focus:border-navy-500"
                 />
+                <p className="mt-1 text-[10px] text-gray-400">12 numeric digits (cannot start with 0 or 1)</p>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-navy-700">
+                  Company PAN Number <span className="text-red-500">*</span>
+                </label>
+                <input
+                  placeholder="e.g. ABCDE1234F"
+                  value={companyPanNumber}
+                  onChange={(e) => setCompanyPanNumber(e.target.value.toUpperCase())}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-xs font-mono text-navy-800 placeholder-gray-400 outline-none focus:border-navy-500 uppercase"
+                />
+                <p className="mt-1 text-[10px] text-gray-400">10 characters (5 letters, 4 digits, 1 letter)</p>
               </div>
             </div>
 
-            {[
-              { label: 'Aadhaar Card', desc: 'Front and back' },
-              { label: 'PAN Card', desc: 'Both sides' },
-              { label: 'Contractor License', desc: 'Valid license copy' },
-            ].map((doc) => {
-              const isUploaded = uploadedDocNames.includes(doc.label);
-              return (
-                <div key={doc.label}>
-                  <div className="mb-1 flex items-center justify-between">
-                    <label className="text-sm font-medium text-navy-600">{doc.label}</label>
-                    {isUploaded && <span className="text-xs font-semibold text-emerald-600">✓ Uploaded</span>}
-                  </div>
-                  <div
-                    onClick={() => handleSimulateDocUpload(doc.label)}
-                    className={`flex h-20 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed transition-colors ${
-                      isUploaded
-                        ? 'border-emerald-300 bg-emerald-50/40'
-                        : 'border-gray-200 hover:border-navy-300 hover:bg-navy-50'
-                    }`}
-                  >
-                    <div className="flex flex-col items-center gap-1 text-gray-400">
-                      <Upload className={`h-5 w-5 ${isUploaded ? 'text-emerald-500' : ''}`} />
-                      <span className="text-xs text-gray-500">{doc.desc} — click to attach</span>
-                    </div>
+            {/* Document Upload Blocks */}
+            <div className="space-y-3">
+              {/* Aadhaar Upload */}
+              <div>
+                <div className="mb-1 flex items-center justify-between">
+                  <label className="text-xs font-semibold text-navy-700">Aadhaar Card Document (Image / PDF)</label>
+                  {aadhaarFile && <span className="text-[11px] font-semibold text-emerald-600">✓ {aadhaarFile.name} attached</span>}
+                </div>
+                <input
+                  ref={aadhaarFileInputRef}
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={handleAadhaarFileSelect}
+                  className="hidden"
+                />
+                <div
+                  onClick={() => aadhaarFileInputRef.current?.click()}
+                  className={`flex h-20 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed transition-colors ${
+                    aadhaarFile
+                      ? 'border-emerald-400 bg-emerald-50/50'
+                      : 'border-gray-300 hover:border-navy-400 hover:bg-navy-50/50'
+                  }`}
+                >
+                  <div className="flex flex-col items-center gap-1 text-gray-500 text-xs">
+                    <Upload className={`h-5 w-5 ${aadhaarFile ? 'text-emerald-600' : 'text-gray-400'}`} />
+                    <span>{aadhaarFile ? aadhaarFile.name : 'Click to select Aadhaar Card (JPG, PNG, WebP, PDF)'}</span>
                   </div>
                 </div>
-              );
-            })}
-            <div className="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-3">
-              <Clock className="h-4 w-4 text-gray-400" />
-              <p className="text-sm text-gray-500">
-                Initial KYC Status: <span className="font-medium text-amber-600">Pending Review</span>
-              </p>
+              </div>
+
+              {/* Company PAN Upload */}
+              <div>
+                <div className="mb-1 flex items-center justify-between">
+                  <label className="text-xs font-semibold text-navy-700">Company PAN Card Document (Image / PDF)</label>
+                  {companyPanFile && <span className="text-[11px] font-semibold text-emerald-600">✓ {companyPanFile.name} attached</span>}
+                </div>
+                <input
+                  ref={panFileInputRef}
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={handlePanFileSelect}
+                  className="hidden"
+                />
+                <div
+                  onClick={() => panFileInputRef.current?.click()}
+                  className={`flex h-20 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed transition-colors ${
+                    companyPanFile
+                      ? 'border-emerald-400 bg-emerald-50/50'
+                      : 'border-gray-300 hover:border-navy-400 hover:bg-navy-50/50'
+                  }`}
+                >
+                  <div className="flex flex-col items-center gap-1 text-gray-500 text-xs">
+                    <Upload className={`h-5 w-5 ${companyPanFile ? 'text-emerald-600' : 'text-gray-400'}`} />
+                    <span>{companyPanFile ? companyPanFile.name : 'Click to select Company PAN Card (JPG, PNG, WebP, PDF)'}</span>
+                  </div>
+                </div>
+              </div>
             </div>
+
+            {/* Run OCR & Document Verification Button */}
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={handleRunDocumentVerification}
+                disabled={verifyingDocs}
+                className="flex items-center gap-2 rounded-lg bg-navy-600 px-4 py-2 text-xs font-semibold text-white hover:bg-navy-700 transition-colors disabled:opacity-50"
+              >
+                {verifyingDocs ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Preprocessing & Scanning OCR...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 text-amber-300" />
+                    <span>Run Automated Verification Scan</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Verification Results Feedback Card */}
+            {docVerificationResult && (
+              <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm space-y-3">
+                <div className="flex items-center justify-between border-b pb-2">
+                  <span className="text-xs font-bold text-navy-800">Verification Result Summary</span>
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                      docVerificationResult.verificationStatus === 'AUTOMATED_VERIFICATION_PASSED'
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                        : docVerificationResult.verificationStatus === 'VERIFICATION_REQUIRED'
+                        ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                        : 'bg-red-100 text-red-800 border border-red-300'
+                    }`}
+                  >
+                    {docVerificationResult.verificationStatus === 'AUTOMATED_VERIFICATION_PASSED'
+                      ? '✓ AUTOMATED VERIFICATION PASSED'
+                      : docVerificationResult.verificationStatus === 'VERIFICATION_REQUIRED'
+                      ? '⚠️ VERIFICATION REQUIRED (ADMIN REVIEW)'
+                      : '❌ VERIFICATION FAILED'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="flex items-center justify-between rounded bg-gray-50 p-2">
+                    <span>Aadhaar Number Format:</span>
+                    <span className={docVerificationResult.aadhaarFormatValid ? 'text-emerald-600 font-bold' : 'text-red-600 font-bold'}>
+                      {docVerificationResult.aadhaarFormatValid ? '✓ Valid (12-digit)' : '❌ Invalid'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between rounded bg-gray-50 p-2">
+                    <span>Company PAN Format:</span>
+                    <span className={docVerificationResult.panFormatValid ? 'text-emerald-600 font-bold' : 'text-red-600 font-bold'}>
+                      {docVerificationResult.panFormatValid ? '✓ Valid (10-char)' : '❌ Invalid'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between rounded bg-gray-50 p-2">
+                    <span>Aadhaar Match:</span>
+                    <span className={docVerificationResult.aadhaarNumberMatch ? 'text-emerald-600 font-bold' : 'text-amber-600 font-bold'}>
+                      {docVerificationResult.aadhaarNumberMatch ? '✓ Matched' : '⚠️ Discrepancy'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between rounded bg-gray-50 p-2">
+                    <span>Company PAN Match:</span>
+                    <span className={docVerificationResult.panNumberMatch ? 'text-emerald-600 font-bold' : 'text-amber-600 font-bold'}>
+                      {docVerificationResult.panNumberMatch ? '✓ Matched' : '⚠️ Discrepancy'}
+                    </span>
+                  </div>
+                </div>
+
+                {docVerificationResult.mismatchFlags && docVerificationResult.mismatchFlags.length > 0 && (
+                  <div className="rounded-lg bg-amber-50 p-2.5 text-[11px] text-amber-900 border border-amber-200">
+                    <p className="font-semibold mb-1">Detected Items Flagged for Admin Review:</p>
+                    <ul className="list-disc pl-4 space-y-0.5">
+                      {docVerificationResult.mismatchFlags.map((flag, idx) => (
+                        <li key={idx}>{flag}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 

@@ -30,3 +30,9 @@ export function protect(req: AuthRequest, res: Response, next: NextFunction): vo
     res.status(401).json({ message: 'Not authorized. Token is invalid or expired.' });
   }
 }
+
+export function generateToken(userId: string, role: string): string {
+  return jwt.sign({ userId, role }, process.env.JWT_SECRET || 'secret', {
+    expiresIn: '7d',
+  });
+}
