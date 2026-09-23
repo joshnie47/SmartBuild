@@ -2,6 +2,7 @@ export type Role = 'client' | 'contractor' | 'admin';
 
 export type ScreenId =
   | 'auth'
+  | 'admin-login'
   | 'client-home'
   | 'post-project'
   | 'contractor-results'

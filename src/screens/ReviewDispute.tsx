@@ -9,7 +9,7 @@ import { apiGetProjects, apiSubmitReview, type ApiProject } from '../lib/api';
 
 const TAGS = ['On time', 'Professional', 'Good pricing', 'Quality work', 'Clean site', 'Good communication', 'Friendly'];
 
-export function ReviewDispute({ onNavigate }: { onNavigate: (id: ScreenId) => void }) {
+export function ReviewDispute({ onNavigate, projectId }: { onNavigate: (id: ScreenId) => void; projectId?: string }) {
   const { locale } = useLocale();
   const [project, setProject] = useState<ApiProject | null>(null);
   const [rating, setRating] = useState(5);

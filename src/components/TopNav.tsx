@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Globe, Bell, Menu, ArrowLeft, Check, CheckCheck, ExternalLink, Clock } from 'lucide-react';
+import { Search, Bell, Menu, ArrowLeft, CheckCheck, ExternalLink, Clock } from 'lucide-react';
 import { Logo, Avatar } from './ui';
 import { useSidebar } from './sidebar-context';
 import type { ScreenId, ApiNotificationItem } from '../types';
 import { apiGetNotifications, apiMarkNotificationRead, apiMarkAllNotificationsRead } from '../lib/api';
 import { useLocale } from '../i18n/LocaleContext';
-import { t } from '../i18n';
+import { LanguageSwitcher } from './LanguageSwitcher';
 
 export function TopNav({
   showSearch = true,
@@ -19,7 +19,7 @@ export function TopNav({
   onNavigate?: (id: ScreenId, projectId?: string) => void;
 }) {
   const { openSidebar } = useSidebar();
-  const { locale, setLocale } = useLocale();
+  const { t } = useLocale();
   const [notifications, setNotifications] = useState<ApiNotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -90,10 +90,6 @@ export function TopNav({
     }
   };
 
-  const toggleLanguage = () => {
-    setLocale(locale === 'en' ? 'ta' : 'en');
-  };
-
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-gray-100 bg-white/95 px-4 backdrop-blur-md md:px-6">
       <button onClick={openSidebar} className="rounded-lg p-2 text-navy-500 hover:bg-navy-50 lg:hidden">
@@ -106,7 +102,7 @@ export function TopNav({
           className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-navy-600 hover:bg-navy-50"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Login
+          {t('backToLoginNav')}
         </button>
       )}
 
@@ -116,21 +112,15 @@ export function TopNav({
         <div className="ml-4 hidden flex-1 max-w-md items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 md:flex">
           <Search className="h-4 w-4 text-gray-400" />
           <input
-            placeholder="Search contractors, projects..."
+            placeholder={t('searchPlaceholder')}
             className="w-full bg-transparent text-sm text-navy-700 placeholder-gray-400 outline-none"
           />
         </div>
       )}
 
       <div className="ml-auto flex items-center gap-1 md:gap-2">
-        <button
-          onClick={toggleLanguage}
-          title="Toggle English / தமிழ்"
-          className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-navy-600 hover:bg-navy-50 border border-gray-200"
-        >
-          <Globe className="h-4 w-4 text-navy-500" strokeWidth={1.75} />
-          {locale === 'en' ? 'தமிழ்' : 'English'}
-        </button>
+        <LanguageSwitcher variant="header" />
+
 
         <div className="relative" ref={dropdownRef}>
           <button
@@ -154,10 +144,10 @@ export function TopNav({
             <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl border border-gray-100 bg-white p-3 shadow-card z-50 animate-fadeIn">
               <div className="flex items-center justify-between border-b border-gray-100 pb-2 px-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-navy-700">Notifications</span>
+                  <span className="text-sm font-bold text-navy-700">{t('notificationsTitle')}</span>
                   {unreadCount > 0 && (
                     <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">
-                      {unreadCount} new
+                      {unreadCount}
                     </span>
                   )}
                 </div>
@@ -166,19 +156,18 @@ export function TopNav({
                     onClick={handleMarkAllRead}
                     className="flex items-center gap-1 text-[11px] font-medium text-navy-600 hover:text-navy-800"
                   >
-                    <CheckCheck className="h-3 w-3" /> Mark all read
+                    <CheckCheck className="h-3 w-3" /> {t('markAllRead')}
                   </button>
                 )}
               </div>
 
               <div className="mt-2 max-h-80 overflow-y-auto space-y-1.5 scrollbar-thin">
                 {loading && notifications.length === 0 ? (
-                  <p className="py-6 text-center text-xs text-gray-400">Loading notifications...</p>
+                  <p className="py-6 text-center text-xs text-gray-400">{t('loading')}</p>
                 ) : notifications.length === 0 ? (
                   <div className="py-8 text-center">
                     <Bell className="mx-auto h-8 w-8 text-gray-300 stroke-[1.5]" />
-                    <p className="mt-2 text-xs font-medium text-gray-500">No notifications yet</p>
-                    <p className="text-[11px] text-gray-400">You'll receive updates when bids or responses are submitted.</p>
+                    <p className="mt-2 text-xs font-medium text-gray-500">{t('noNotifications')}</p>
                   </div>
                 ) : (
                   notifications.map((n) => (

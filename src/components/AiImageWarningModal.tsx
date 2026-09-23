@@ -8,6 +8,7 @@ import {
   Info,
 } from 'lucide-react';
 import type { AiClassification } from '../types';
+import { useLocale } from '../i18n/LocaleContext';
 
 export interface ImageAnalysisData {
   authenticity?: 'LIKELY_REAL' | 'LIKELY_AI' | 'UNCERTAIN' | 'AI_GENERATED';
@@ -41,6 +42,8 @@ export function AiImageWarningModal({
   onKeep,
   onClose,
 }: AiImageWarningModalProps) {
+  const { t } = useLocale();
+
   if (!isOpen || !analysis) return null;
 
   const classification =
@@ -62,12 +65,6 @@ export function AiImageWarningModal({
       : 0.85;
 
   const confidencePct = Math.round(rawConfidence * 100) || analysis.scorePercentage || 85;
-  const reason =
-    analysis.analysisReason ||
-    analysis.reason ||
-    (isAiGenerated
-      ? 'Detected synthetic diffusion patterns and architectural rendering characteristics.'
-      : 'Visual markers were inconclusive to verify physical camera sensor signatures.');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy-950/65 backdrop-blur-sm animate-fadeIn">
@@ -92,10 +89,10 @@ export function AiImageWarningModal({
               <div>
                 <h3 className="text-base font-bold text-white leading-tight">
                   {isAiGenerated
-                    ? 'AI-Generated Image Detected'
-                    : 'Authenticity Could Not Be Determined'}
+                    ? t('aiImageDetectedTitle')
+                    : t('aiUncertainTitle')}
                 </h3>
-                <p className="text-xs text-white/80">SmartBuild AI Portfolio Verification</p>
+                <p className="text-xs text-white/80">{t('aiVerificationSubtitle')}</p>
               </div>
             </div>
             {onClose && (
@@ -103,7 +100,7 @@ export function AiImageWarningModal({
                 type="button"
                 onClick={onClose}
                 className="rounded-lg p-1 text-white/80 hover:bg-white/20 transition-colors"
-                title="Close"
+                title={t('close')}
               >
                 <X className="h-5 w-5" />
               </button>
@@ -125,12 +122,12 @@ export function AiImageWarningModal({
               {isAiGenerated ? (
                 <>
                   <Sparkles className="h-3.5 w-3.5 text-amber-200" />
-                  <span>Likely AI-Generated ({confidencePct}% Match)</span>
+                  <span>{t('aiLikelyGenerated', { pct: confidencePct })}</span>
                 </>
               ) : (
                 <>
                   <HelpCircle className="h-3.5 w-3.5 text-blue-200" />
-                  <span>Uncertain Authenticity ({confidencePct}% Inconclusive)</span>
+                  <span>{t('aiUncertainMatch', { pct: confidencePct })}</span>
                 </>
               )}
             </div>
@@ -140,44 +137,26 @@ export function AiImageWarningModal({
                 {originalFilename}
               </div>
             )}
-
           </div>
 
           {/* Explanatory Policy Notice */}
           <div className="rounded-xl bg-gray-50 border border-gray-200 p-3 text-xs text-gray-600 leading-relaxed">
             <p className="font-semibold text-navy-800">
-              {isAiGenerated ? 'What would you like to do?' : 'Choose how to proceed:'}
+              {t('aiActionPrompt')}
             </p>
-            <p className="mt-1 text-[11px] text-gray-500">
-              {isAiGenerated ? (
-                <>
-                  SmartBuild values transparency for project clients. You can replace this image with an authentic on-site photograph for higher recommendation matching, or keep it explicitly labeled as an <strong>⚠ AI Generated</strong> concept rendering.
-                </>
-              ) : (
-                <>
-                  Our AI verification could not definitively confirm optical sensor signatures. You can keep this image as <strong>Unverified</strong>, or replace it with a clearer on-site photo.
-                </>
-              )}
-            </p>
-            <div className="mt-2 flex items-center gap-1.5 text-[10px] text-gray-400">
-              <Info className="h-3 w-3 shrink-0" />
-              <span>AI analysis evaluates visual indicators with high precision; it is never 100% infallible.</span>
-            </div>
           </div>
 
-          {/* Action buttons matching exact workflow choices (Requirement 4) */}
+          {/* Action buttons */}
           <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
-            {/* Choice 1: Replace Image */}
             <button
               type="button"
               onClick={onReplace}
               className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-navy-600 hover:bg-navy-700 text-white font-semibold py-2.5 px-4 text-xs shadow-soft transition-transform active:scale-95"
             >
               <RefreshCw className="h-4 w-4 text-amber-300" />
-              <span>{isAiGenerated ? 'Replace with Real Photo' : 'Replace with Clearer Photo'}</span>
+              <span>{isAiGenerated ? t('aiReplaceRealPhoto') : t('aiReplaceClearerPhoto')}</span>
             </button>
 
-            {/* Choice 2: Keep Image & Mark as AI / Keep as Unverified */}
             <button
               type="button"
               onClick={() => onKeep(isAiGenerated ? 'KEEP_AI' : 'KEEP_UNVERIFIED')}
@@ -186,12 +165,12 @@ export function AiImageWarningModal({
               {isAiGenerated ? (
                 <>
                   <Sparkles className="h-4 w-4 text-purple-600" />
-                  <span>Keep & Mark as AI Generated</span>
+                  <span>{t('aiKeepMarkAi')}</span>
                 </>
               ) : (
                 <>
                   <HelpCircle className="h-4 w-4 text-gray-600" />
-                  <span>Keep as Unverified</span>
+                  <span>{t('aiKeepUnverified')}</span>
                 </>
               )}
             </button>

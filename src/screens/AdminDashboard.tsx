@@ -665,11 +665,11 @@ export function AdminDashboard({ onNavigate }: { onNavigate: (id: ScreenId) => v
                 </div>
               </div>
 
-              {selectedContractor.specializations?.length > 0 && (
+              {(selectedContractor.specializations?.length ?? 0) > 0 && (
                 <div>
                   <span className="text-xs text-gray-400 block mb-1">Specializations</span>
                   <div className="flex flex-wrap gap-1">
-                    {selectedContractor.specializations.map((s) => (
+                    {selectedContractor.specializations?.map((s) => (
                       <span key={s} className="rounded bg-navy-50 px-2 py-0.5 text-xs text-navy-700">
                         {s}
                       </span>

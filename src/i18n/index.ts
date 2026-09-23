@@ -477,6 +477,61 @@ export const translations = {
     refresh: 'Refresh',
     voiceInputTooltip: 'Click to speak requirements in your selected language',
     voiceListening: 'Listening... Speak now',
+
+    // Project Post Overlay & Modal
+    postingDispatching: 'Posting & Dispatching Project...',
+    alertingContractors: 'Alerting verified available {category} contractors',
+    projectPostedBroadcasted: 'Project Posted & Broadcasted!',
+    notificationsDispatched: 'Notifications dispatched to matching domain contractors',
+    contractorsReviewing: 'Contractors will review requirements and submit quotations',
+    liveNotificationsInfo: 'You will receive live notifications as quotes arrive',
+    goToMyDashboard: 'Go to My Dashboard',
+    viewProjectStatus: 'View Project Status',
+
+    // AI Image Verification Modal
+    aiImageDetectedTitle: 'AI-Generated Image Detected',
+    aiUncertainTitle: 'Authenticity Could Not Be Determined',
+    aiVerificationSubtitle: 'SmartBuild AI Portfolio Verification',
+    aiLikelyGenerated: 'Likely AI-Generated ({pct}% Match)',
+    aiUncertainMatch: 'Uncertain Authenticity ({pct}% Inconclusive)',
+    aiActionPrompt: 'What would you like to do?',
+    aiReplaceRealPhoto: 'Replace with Real Photo',
+    aiReplaceClearerPhoto: 'Replace with Clearer Photo',
+    aiKeepMarkAi: 'Keep & Mark as AI Generated',
+    aiKeepUnverified: 'Keep as Unverified',
+    realImageRequired: 'Real Image Required',
+    uploadAnotherImage: 'Upload Another Image',
+    verificationSuccessful: 'Verification Successful',
+    verificationFailed: 'Verification Failed',
+
+    // Missing Email Banner
+    addYourEmailTitle: 'Add Your Email Address',
+    addYourEmailDesc: 'Without an email address, you cannot reset your PIN if you forget it. Add your email now to secure your account.',
+    updateEmailBtn: 'Update Email',
+    enterYourEmailPlaceholder: 'Enter your email address',
+
+    // Project & Contractor tracking labels
+    stage: 'Stage',
+    contractor: 'Contractor',
+    offline: 'Offline',
+    typing: 'Typing...',
+    noMessagesYet: 'No messages yet. Say hello! 👋',
+    selectConvToStart: 'Select a conversation to start chatting',
+    verifiedBadge: 'Verified Contractor',
+
+    // Key Aliases
+    exitAdmin: 'Exit Admin Portal',
+    adminDashboard: 'Admin Control Center',
+    earnings: 'Total Awarded Work',
+    activeJobs: 'Active Projects',
+    rating: 'Average Rating',
+    completed: 'Completed Jobs',
+    contractorOnboardingTitle: 'Contractor Onboarding',
+    contractorOnboardingSubtitle: 'Complete your professional profile to start receiving relevant construction projects.',
+    kycSecurityNote: 'Your government KYC documents are securely stored for contractor verification.',
+    yourReview: 'Your Review',
+    submitQuoteTitle: 'Submit Quotation',
+    estimatedDuration: 'Estimated Duration (Days)',
   },
 
   ta: {
@@ -929,6 +984,61 @@ export const translations = {
     refresh: 'புதுப்பிக்கவும்',
     voiceInputTooltip: 'தேர்ந்தெடுக்கப்பட்ட மொழியில் குரல் மூலம் பேச கிளிக் செய்க',
     voiceListening: 'கேட்கிறது... இப்போது பேசவும்',
+
+    // Project Post Overlay & Modal
+    postingDispatching: 'திட்டம் பதிவு செய்யப்பட்டு அனுப்பப்படுகிறது...',
+    alertingContractors: 'சரிபார்க்கப்பட்ட {category} ஒப்பந்ததாரர்களுக்கு அறிவிக்கப்படுகிறது',
+    projectPostedBroadcasted: 'திட்டம் வெற்றிகரமாக பதிவு செய்யப்பட்டு அறிவிக்கப்பட்டது!',
+    notificationsDispatched: 'பொருத்தமான ஒப்பந்ததாரர்களுக்கு அறிவிப்புகள் அனுப்பப்பட்டன',
+    contractorsReviewing: 'ஒப்பந்ததாரர்கள் தேவைகளை ஆய்வு செய்து விலைப்புள்ளி வழங்குவர்',
+    liveNotificationsInfo: 'விலைப்புள்ளிகள் வரும்போது நேரலை அறிவிப்புகளைப் பெறுவீர்கள்',
+    goToMyDashboard: 'எனது டாஷ்போர்டிற்குச் செல்க',
+    viewProjectStatus: 'திட்ட நிலையைக் காண்க',
+
+    // AI Image Verification Modal
+    aiImageDetectedTitle: 'AI உருவாக்கிய படம் கண்டறியப்பட்டது',
+    aiUncertainTitle: 'படத்தின் நம்பகத்தன்மையை உறுதிப்படுத்த முடியவில்லை',
+    aiVerificationSubtitle: 'SmartBuild AI சுயவிவர சரிபார்ப்பு',
+    aiLikelyGenerated: 'AI மூலம் உருவாக்கப்பட்டிருக்க வாய்ப்புள்ளது ({pct}%)',
+    aiUncertainMatch: 'தெளிவற்ற படம் ({pct}%)',
+    aiActionPrompt: 'நீங்கள் என்ன செய்ய விரும்புகிறீர்கள்?',
+    aiReplaceRealPhoto: 'உண்மையான புகைப்படத்தால் மாற்றவும்',
+    aiReplaceClearerPhoto: 'தெளிவான புகைப்படத்தால் மாற்றவும்',
+    aiKeepMarkAi: 'AI படம் எனக் குறித்து வைத்துக் கொள்க',
+    aiKeepUnverified: 'சரிபார்க்கப்படாத படமாக வைத்துக் கொள்க',
+    realImageRequired: 'உண்மையான படம் தேவை',
+    uploadAnotherImage: 'மற்றொரு படத்தை பதிவேற்றவும்',
+    verificationSuccessful: 'சரிபார்ப்பு வெற்றியடைந்தது',
+    verificationFailed: 'சரிபார்ப்பு தோல்வியடைந்தது',
+
+    // Missing Email Banner
+    addYourEmailTitle: 'உங்கள் மின்னஞ்சல் முகவரியைச் சேர்க்கவும்',
+    addYourEmailDesc: 'மின்னஞ்சல் முகவரி இல்லை எனில், PIN மறந்தால் மீட்டமைக்க முடியாது. கணக்கைப் பாதுகாக்க மின்னஞ்சலைச் சேர்க்கவும்.',
+    updateEmailBtn: 'மின்னஞ்சலை புதுப்பிக்கவும்',
+    enterYourEmailPlaceholder: 'உங்கள் மின்னஞ்சலை உள்ளிடவும்',
+
+    // Project & Contractor tracking labels
+    stage: 'பணி நிலை',
+    contractor: 'ஒப்பந்ததாரர்',
+    offline: 'ஆஃப்லைனில் உள்ளார்',
+    typing: 'தட்டச்சு செய்கிறார்...',
+    noMessagesYet: 'செய்திகள் எதுவும் இல்லை. வாழ்த்துக்கள் சொல்லுங்கள்! 👋',
+    selectConvToStart: 'உரையாடலைத் தொடங்க ஒருவரைத் தேர்ந்தெடுக்கவும்',
+    verifiedBadge: 'சரிபார்க்கப்பட்ட ஒப்பந்ததாரர்',
+
+    // Key Aliases
+    exitAdmin: 'நிர்வாக தளத்திலிருந்து வெளியேறுக',
+    adminDashboard: 'நிர்வாக கட்டுப்பாட்டு மையம்',
+    earnings: 'மொத்த ஒப்பந்த மதிப்பு',
+    activeJobs: 'நடப்பு பணிகள்',
+    rating: 'சராசரி மதிப்பீடு',
+    completed: 'முடிக்கப்பட்ட பணிகள்',
+    contractorOnboardingTitle: 'ஒப்பந்ததாரர் பதிவு',
+    contractorOnboardingSubtitle: 'பொருத்தமான கட்டுமான திட்டங்களைப் பெற உங்கள் தொழில் சுயவிவரத்தை முழுமையாக்குங்கள்.',
+    kycSecurityNote: 'உங்கள் அரசு KYC ஆவணங்கள் ஒப்பந்ததாரர் சரிபார்ப்பிற்காக பாதுகாப்பாக சேமிக்கப்படுகின்றன.',
+    yourReview: 'உங்கள் மதிப்புரை',
+    submitQuoteTitle: 'மதிப்பீட்டை சமர்ப்பிக்கவும்',
+    estimatedDuration: 'மதிப்பிடப்பட்ட கால அளவு (நாட்கள்)',
   },
 } as const;
 
@@ -939,7 +1049,14 @@ export const translations = {
   }
 });
 
-export function t(locale: Locale, key: TranslationKey): string {
+export function t(locale: Locale, key: TranslationKey, vars?: Record<string, string | number>): string {
   const loc = locale in translations ? locale : 'en';
-  return (translations[loc] as Record<string, string>)[key] ?? (translations.en as Record<string, string>)[key] ?? key;
+  let str = (translations[loc] as Record<string, string>)[key] ?? (translations.en as Record<string, string>)[key] ?? key;
+  if (vars) {
+    Object.entries(vars).forEach(([k, v]) => {
+      str = str.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v));
+    });
+  }
+  return str;
 }
+

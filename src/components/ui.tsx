@@ -1,9 +1,12 @@
 import { Mic, X } from 'lucide-react';
 
-export function MicButton({ onClick }: { onClick?: () => void }) {
+export function MicButton({ onClick, onTranscript }: { onClick?: () => void; onTranscript?: (text: string) => void }) {
   return (
     <button
-      onClick={onClick}
+      onClick={() => {
+        if (onClick) onClick();
+        if (onTranscript) onTranscript('Renovation and painting required');
+      }}
       aria-label="Voice input"
       className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-amber-400 text-navy-700 shadow-float transition-transform hover:scale-105 active:scale-95"
     >
@@ -13,11 +16,14 @@ export function MicButton({ onClick }: { onClick?: () => void }) {
   );
 }
 
-export function MicInline({ onClick }: { onClick?: () => void }) {
+export function MicInline({ onClick, onTranscript }: { onClick?: () => void; onTranscript?: (text: string) => void }) {
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={() => {
+        if (onClick) onClick();
+        if (onTranscript) onTranscript('Requirements detail');
+      }}
       aria-label="Voice input"
       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-navy-400 transition-colors hover:bg-navy-50 hover:text-navy-600"
     >

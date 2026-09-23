@@ -3,32 +3,35 @@ import {
   LayoutDashboard, FileText, User, Settings, X, Building2,
 } from 'lucide-react';
 import type { Role, ScreenId } from '../types';
+import { useLocale } from '../i18n/LocaleContext';
+import type { TranslationKey } from '../i18n';
+import { LanguageSwitcher } from './LanguageSwitcher';
 
 interface NavItem {
   id: ScreenId;
-  label: string;
+  labelKey: TranslationKey;
   icon: typeof Home;
 }
 
 const clientNav: NavItem[] = [
-  { id: 'client-home', label: 'Dashboard', icon: Home },
-  { id: 'post-project', label: 'Post a Project', icon: FilePlus },
-  { id: 'contractor-results', label: 'Find Contractors', icon: Users },
-  { id: 'project-tracking', label: 'Project Tracking', icon: ClipboardList },
-  { id: 'review-dispute', label: 'Reviews', icon: Star },
-  { id: 'chat', label: 'Messages', icon: MessageSquare },
+  { id: 'client-home', labelKey: 'navDashboard', icon: Home },
+  { id: 'post-project', labelKey: 'navPostProject', icon: FilePlus },
+  { id: 'contractor-results', labelKey: 'navFindContractors', icon: Users },
+  { id: 'project-tracking', labelKey: 'navProjectTracking', icon: ClipboardList },
+  { id: 'review-dispute', labelKey: 'navReviews', icon: Star },
+  { id: 'chat', labelKey: 'navMessages', icon: MessageSquare },
 ];
 
 const contractorNav: NavItem[] = [
-  { id: 'contractor-dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'submit-quote', label: 'Submit Quote', icon: FileText },
-  { id: 'project-update', label: 'Project Updates', icon: ClipboardList },
-  { id: 'contractor-profile', label: 'My Profile', icon: User },
-  { id: 'chat', label: 'Messages', icon: MessageSquare },
+  { id: 'contractor-dashboard', labelKey: 'navDashboard', icon: LayoutDashboard },
+  { id: 'submit-quote', labelKey: 'navSubmitQuote', icon: FileText },
+  { id: 'project-update', labelKey: 'navProjectUpdates', icon: ClipboardList },
+  { id: 'contractor-profile', labelKey: 'navMyProfile', icon: User },
+  { id: 'chat', labelKey: 'navMessages', icon: MessageSquare },
 ];
 
 const adminNav: NavItem[] = [
-  { id: 'admin-dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'admin-dashboard', labelKey: 'navDashboard', icon: LayoutDashboard },
 ];
 
 export function Sidebar({
@@ -44,6 +47,7 @@ export function Sidebar({
   open: boolean;
   onClose: () => void;
 }) {
+  const { t } = useLocale();
   const items = role === 'client' ? clientNav : role === 'contractor' ? contractorNav : adminNav;
 
   return (
@@ -80,18 +84,19 @@ export function Sidebar({
                 }`}
               >
                 <item.icon className="h-5 w-5" strokeWidth={1.75} />
-                {item.label}
+                {t(item.labelKey)}
               </button>
             );
           })}
         </nav>
-        <div className="border-t border-gray-100 p-3">
+        <div className="border-t border-gray-100 p-3 space-y-2">
+          <LanguageSwitcher variant="card" className="w-full" />
           <button
             onClick={() => onNavigate('auth')}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-500 hover:bg-gray-50"
           >
             <Settings className="h-5 w-5" strokeWidth={1.75} />
-            Switch Role
+            {t('navSwitchRole')}
           </button>
         </div>
       </aside>

@@ -7,6 +7,8 @@ import type { Role } from '../types';
 import { Logo } from '../components/ui';
 import { useLocale } from '../i18n/LocaleContext';
 import { LOCALES, LOCALE_LABELS, type Locale, t } from '../i18n';
+import { LanguageSwitcher } from '../components/LanguageSwitcher';
+
 import {
   apiRegister, apiLogin,
   apiPhoneCheck, apiPhoneLogin, apiPhoneRegister, apiPhoneSetupPin,
@@ -613,29 +615,7 @@ export function AuthScreen({
 
       {/* Language Switcher */}
       <div className="absolute right-4 top-4 z-40">
-        <div className="relative">
-          <button
-            onClick={() => setLangOpen(!langOpen)}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-navy-700 shadow-sm transition-colors hover:bg-gray-50"
-          >
-            <span>{LOCALE_LABELS[locale]}</span>
-            <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
-          </button>
-          {langOpen && (
-            <div className="absolute right-0 mt-1 w-36 rounded-lg border border-gray-200 bg-white py-1 shadow-lg z-50">
-              {LOCALES.map((localeCode) => (
-                <button
-                  key={localeCode}
-                  onClick={() => { setLocale(localeCode as Locale); setLangOpen(false); }}
-                  className={`flex w-full items-center justify-between px-3 py-1.5 text-xs transition-colors hover:bg-gray-50 ${locale === localeCode ? 'font-semibold text-navy-700' : 'text-gray-600'}`}
-                >
-                  <span>{LOCALE_LABELS[localeCode as Locale]}</span>
-                  <span className="text-[10px] text-gray-400">{localeCode.toUpperCase()}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <LanguageSwitcher variant="header" />
       </div>
 
       {/* Left panel — Branding */}

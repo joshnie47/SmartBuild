@@ -122,7 +122,7 @@ export function ContractorProfile({ onNavigate }: { onNavigate: (id: ScreenId) =
           setPortfolioItems(p.portfolioItems);
         } else if (Array.isArray(p.portfolioImages)) {
           setPortfolioItems(
-            p.portfolioImages.map((url) => ({
+            p.portfolioImages.map((url: string) => ({
               imageUrl: url,
               url,
               aiClassification: 'LIKELY_REAL',

@@ -4,6 +4,8 @@ import { TopNav } from '../components/TopNav';
 import { MicInline, MicButton, Avatar } from '../components/ui';
 import { apiGetConversations, apiGetMessages, type ApiConversation, type ApiMessage } from '../lib/chatApi';
 import { chatSocket, type ServerEvent } from '../lib/chatSocket';
+import { useLocale } from '../i18n/LocaleContext';
+import type { ScreenId } from '../types';
 const uuidv4 = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`);
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -17,6 +19,7 @@ interface OnlineState {
 }
 
 export function Chat({ onNavigate }: { onNavigate: (id: ScreenId) => void }) {
+  const { t } = useLocale();
   const [conversations, setConversations] = useState<ApiConversation[]>([]);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ApiMessage[]>([]);
@@ -302,9 +305,9 @@ export function Chat({ onNavigate }: { onNavigate: (id: ScreenId) => void }) {
                       <div className="flex items-center justify-between">
                         <p className="truncate text-xs text-gray-400">
                           {typing[conv._id] ? (
-                            <span className="italic text-emerald-500">Typing…</span>
+                            <span className="italic text-emerald-500">{t('typing')}</span>
                           ) : (
-                            conv.lastMessage?.body ?? 'No messages yet'
+                            conv.lastMessage?.body ?? t('noMessagesYet')
                           )}
                         </p>
                         {conv.unreadCount > 0 && (
@@ -324,7 +327,7 @@ export function Chat({ onNavigate }: { onNavigate: (id: ScreenId) => void }) {
           <div className={`flex flex-1 flex-col ${showMobileList ? 'hidden md:flex' : 'flex'}`}>
             {!activeConv ? (
               <div className="flex flex-1 items-center justify-center text-sm text-gray-400">
-                Select a conversation to start chatting
+                {t('selectConvToStart')}
               </div>
             ) : (
               <>
@@ -352,8 +355,8 @@ export function Chat({ onNavigate }: { onNavigate: (id: ScreenId) => void }) {
                     </p>
                     <p className={`text-xs ${getOtherUserOnline(activeConv) ? 'text-emerald-500' : 'text-gray-400'}`}>
                       {typing[activeConv._id]
-                        ? '✏️ Typing…'
-                        : getOtherUserOnline(activeConv) ? '● Online' : '○ Offline'}
+                        ? `✏️ ${t('typing')}`
+                        : getOtherUserOnline(activeConv) ? `● ${t('online')}` : `○ ${t('offline')}`}
                     </p>
                   </div>
                 </div>
@@ -363,7 +366,7 @@ export function Chat({ onNavigate }: { onNavigate: (id: ScreenId) => void }) {
                   onClick={() => onNavigate('project-tracking')}
                   className="flex items-center justify-center gap-2 border-b border-gray-100 bg-navy-50 py-2 text-xs font-medium text-navy-600 transition-colors hover:bg-navy-100"
                 >
-                  <ClipboardList className="h-3.5 w-3.5" /> View Project Progress
+                  <ClipboardList className="h-3.5 w-3.5" /> {t('viewProjectProgress')}
                 </button>
 
                 {/* Messages */}
@@ -376,7 +379,7 @@ export function Chat({ onNavigate }: { onNavigate: (id: ScreenId) => void }) {
 
                   {!loadingMsgs && messages.length === 0 && (
                     <p className="text-center text-sm text-gray-400">
-                      No messages yet. Say hello! 👋
+                      {t('noMessagesYet')}
                     </p>
                   )}
 
@@ -415,7 +418,7 @@ export function Chat({ onNavigate }: { onNavigate: (id: ScreenId) => void }) {
                     value={input}
                     onChange={(e) => handleInputChange(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && send()}
-                    placeholder="Type a message..."
+                    placeholder={t('typeMessage')}
                     className="flex-1 rounded-lg bg-gray-100 px-4 py-2.5 text-sm text-navy-700 placeholder-gray-400 outline-none focus:bg-gray-50 focus:ring-1 focus:ring-navy-200"
                   />
                   <MicInline />

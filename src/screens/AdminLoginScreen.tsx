@@ -3,6 +3,7 @@ import { Mail, Lock, ArrowRight, ArrowLeft } from 'lucide-react';
 import { Logo } from '../components/ui';
 import { useLocale } from '../i18n/LocaleContext';
 import { t } from '../i18n';
+import { LanguageSwitcher } from '../components/LanguageSwitcher';
 
 const USERS_KEY = 'smartbuild_users';
 
@@ -65,7 +66,10 @@ export function AdminLoginScreen({ onSuccess, onBack }: { onSuccess: () => void;
   };
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen relative">
+      <div className="absolute right-4 top-4 z-40">
+        <LanguageSwitcher variant="header" />
+      </div>
       <div className="hidden w-1/2 flex-col justify-between bg-navy-600 p-12 lg:flex">
         <Logo size="lg" variant="light" />
         <div>

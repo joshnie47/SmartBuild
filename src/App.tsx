@@ -172,19 +172,19 @@ function App() {
       case 'post-project':
         return <PostProject onNavigate={handleNavigate} />;
       case 'contractor-results':
-        return <ContractorResults onNavigate={handleNavigate} projectId={activeProjectId} />;
+        return <ContractorResults onNavigate={handleNavigate} projectId={activeProjectId || undefined} />;
       case 'project-tracking':
-        return <ProjectTracking onNavigate={handleNavigate} projectId={activeProjectId} />;
+        return <ProjectTracking onNavigate={handleNavigate} projectId={activeProjectId || undefined} />;
       case 'review-dispute':
-        return <ReviewDispute onNavigate={handleNavigate} projectId={activeProjectId} />;
+        return <ReviewDispute onNavigate={handleNavigate} projectId={activeProjectId || undefined} />;
       case 'contractor-onboarding':
         return <ContractorOnboarding onNavigate={handleNavigate} />;
       case 'contractor-dashboard':
         return <ContractorDashboard onNavigate={handleNavigate} />;
       case 'submit-quote':
-        return <SubmitQuote onNavigate={handleNavigate} projectId={activeProjectId} />;
+        return <SubmitQuote onNavigate={handleNavigate} projectId={activeProjectId || undefined} />;
       case 'project-update':
-        return <ProjectUpdate onNavigate={handleNavigate} projectId={activeProjectId} />;
+        return <ProjectUpdate onNavigate={handleNavigate} projectId={activeProjectId || undefined} />;
       case 'contractor-profile':
         return <ContractorProfile onNavigate={handleNavigate} />;
       case 'chat':

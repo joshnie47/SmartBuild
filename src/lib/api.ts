@@ -1,5 +1,5 @@
 import { getToken } from './auth';
-export type {
+import type {
   ApiContractorProfile,
   ApiBidItem,
   ApiNotificationItem,
@@ -8,6 +8,16 @@ export type {
   PortfolioAuthenticity,
   PortfolioAuthenticitySummary,
 } from '../types';
+
+export type {
+  ApiContractorProfile,
+  ApiBidItem,
+  ApiNotificationItem,
+  ApiReviewItem,
+  PortfolioItem,
+  PortfolioAuthenticity,
+  PortfolioAuthenticitySummary,
+};
 
 const BASE = 'http://localhost:5000/api';
 
@@ -242,10 +252,10 @@ export async function apiResetPin(resetToken: string, newPin: string): Promise<{
 }
 
 // Update email address for phone-only users (authenticated)
-export async function apiUpdateEmail(email: string): Promise<{ user: User; message: string }> {
+export async function apiUpdateEmail(email: string): Promise<{ user: ApiUser; message: string }> {
   const token = getToken();
   if (!token) throw new Error('Not authenticated.');
-  return request<{ user: User; message: string }>('/auth/update-email', {
+  return request<{ user: ApiUser; message: string }>('/auth/update-email', {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify({ email }),
@@ -790,6 +800,7 @@ export async function apiRejectBid(bidId: string): Promise<{ message: string; bi
 // ── Review APIs ──────────────────────────────────────────────────────────────
 export async function apiSubmitReview(payload: {
   projectId: string;
+  contractorId?: string;
   rating: number;
   reviewText?: string;
   tags?: string[];
