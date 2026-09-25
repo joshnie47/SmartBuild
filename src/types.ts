@@ -13,6 +13,7 @@ export type ScreenId =
   | 'submit-quote'
   | 'project-update'
   | 'contractor-profile'
+  | 'contractor-public-profile'
   | 'admin-dashboard'
   | 'chat';
 

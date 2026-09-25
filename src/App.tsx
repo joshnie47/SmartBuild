@@ -19,6 +19,7 @@ import { ContractorDashboard } from './screens/ContractorDashboard';
 import { SubmitQuote } from './screens/SubmitQuote';
 import { ProjectUpdate } from './screens/ProjectUpdate';
 import { ContractorProfile } from './screens/ContractorProfile';
+import { ContractorPublicProfile } from './screens/ContractorPublicProfile';
 import { AdminDashboard } from './screens/AdminDashboard';
 import { AdminLoginScreen } from './screens/AdminLoginScreen';
 import { Chat } from './screens/Chat';
@@ -41,6 +42,7 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sessionLoading, setSessionLoading] = useState(!getAdminSession() && !!getToken());
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [activeContractorId, setActiveContractorId] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<ApiUser | null>(null);
 
   // On mount: if a JWT exists, restore session via /api/auth/me and contractor profile
@@ -102,9 +104,10 @@ function App() {
     }
   };
 
-  const handleNavigate = (id: ScreenId, projectId?: string) => {
-    if (projectId) {
-      setActiveProjectId(projectId);
+  const handleNavigate = (id: ScreenId, contextId?: string) => {
+    if (contextId) {
+      if (id === 'contractor-public-profile') setActiveContractorId(contextId);
+      else setActiveProjectId(contextId);
     }
     if (id === 'auth') {
       clearToken();
@@ -187,6 +190,8 @@ function App() {
         return <ProjectUpdate onNavigate={handleNavigate} projectId={activeProjectId || undefined} />;
       case 'contractor-profile':
         return <ContractorProfile onNavigate={handleNavigate} />;
+      case 'contractor-public-profile':
+        return <ContractorPublicProfile onNavigate={handleNavigate} contractorId={activeContractorId} />;
       case 'chat':
         return <Chat onNavigate={handleNavigate} />;
       default:

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Plus, MapPin, ChevronRight, FileText, BadgeCheck } from 'lucide-react';
+import { Plus, MapPin, ChevronRight, BadgeCheck } from 'lucide-react';
+import { ContractorSearch } from '../components/ContractorSearch';
 import { TopNav } from '../components/TopNav';
 import { MicButton, StatusBadge, StarRating, Avatar } from '../components/ui';
 import type { ScreenId } from '../types';
