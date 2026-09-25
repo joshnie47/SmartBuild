@@ -81,6 +81,7 @@ export function ContractorOnboarding({ onNavigate }: { onNavigate: (id: ScreenId
   const [companyPanDocUrl, setCompanyPanDocUrl] = useState('');
   const [verifyingDocs, setVerifyingDocs] = useState(false);
   const [docVerificationResult, setDocVerificationResult] = useState<DocumentVerificationDetails | null>(null);
+  const [docVerificationSuccessMsg, setDocVerificationSuccessMsg] = useState<string | null>(null);
   const aadhaarFileInputRef = useRef<HTMLInputElement>(null);
   const panFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -106,11 +107,13 @@ export function ContractorOnboarding({ onNavigate }: { onNavigate: (id: ScreenId
 
   const handleRunDocumentVerification = async () => {
     if (!aadhaarNumber.trim() && !companyPanNumber.trim()) {
-      setError('Please enter Aadhaar number (12 digits) or Company PAN number (10 chars) for verification.');
+      setDocVerificationSuccessMsg(null);
+      setError('✕ Verification unsuccessful. The submitted details do not match the uploaded documents.');
       return;
     }
     setVerifyingDocs(true);
     setError('');
+    setDocVerificationSuccessMsg(null);
     try {
       const res = await apiVerifyContractorDocuments({
         aadhaarNumber: aadhaarNumber.trim(),
@@ -122,9 +125,18 @@ export function ContractorOnboarding({ onNavigate }: { onNavigate: (id: ScreenId
       setDocVerificationResult(res.verification);
       if (res.profile?.aadhaarDocumentUrl) setAadhaarDocUrl(res.profile.aadhaarDocumentUrl);
       if (res.profile?.companyPanDocumentUrl) setCompanyPanDocUrl(res.profile.companyPanDocumentUrl);
+
+      if (res.verification?.verificationStatus === 'AUTOMATED_VERIFICATION_PASSED') {
+        setDocVerificationSuccessMsg('✓ Verification successful. Your contractor profile has been verified.');
+        setError('');
+      } else {
+        setDocVerificationSuccessMsg(null);
+        setError('✕ Verification unsuccessful. The submitted details do not match the uploaded documents.');
+      }
     } catch (err: unknown) {
       console.error('Doc verification error:', err);
-      setError(err instanceof Error ? err.message : 'Document verification error.');
+      setDocVerificationSuccessMsg(null);
+      setError('✕ Verification unsuccessful. The submitted details do not match the uploaded documents.');
     } finally {
       setVerifyingDocs(false);
     }
@@ -676,30 +688,33 @@ export function ContractorOnboarding({ onNavigate }: { onNavigate: (id: ScreenId
         {/* Step 2: KYC & Document Verification */}
         {step === 2 && (
           <div className="mt-6 animate-fadeIn space-y-4">
-            <div className="flex items-start gap-2.5 rounded-lg bg-indigo-50/70 border border-indigo-100 px-4 py-3">
-              <ShieldCheck className="h-5 w-5 text-indigo-600 shrink-0 mt-0.5" />
+            <div className="flex items-center gap-2.5 pb-2 border-b">
+              <ShieldCheck className="h-6 w-6 text-indigo-600 shrink-0" />
               <div>
-                <p className="text-xs font-semibold text-indigo-950">Automated Document Verification Engine</p>
-                <p className="text-[11px] text-indigo-700 leading-relaxed mt-0.5">
-                  Enter your Aadhaar and Company PAN numbers and upload official document copies. Our OCR system extracts text, checks formats, and performs cross-consistency checks.
-                </p>
+                <h2 className="text-base font-bold text-navy-900">Contractor Document Verification</h2>
+                <p className="text-xs text-gray-500">Provide the required details and documents for verification.</p>
               </div>
             </div>
 
-            {/* Non-Government API Disclaimer Banner */}
-            <div className="flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 p-3 text-[11px] text-amber-900">
-              <Info className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-              <div>
-                <span className="font-semibold">Notice: </span>
-                Automated document verification checks format validity, OCR pattern matching, and profile field consistency. It does NOT query government database APIs or certify official government registration.
+            {error && (
+              <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-xs text-red-700 font-medium flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
+                <span>{error}</span>
               </div>
-            </div>
+            )}
+
+            {docVerificationSuccessMsg && (
+              <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-800 font-medium flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                <span>{docVerificationSuccessMsg}</span>
+              </div>
+            )}
 
             {/* Form Inputs: Aadhaar Number & Company PAN Number */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="mb-1 block text-xs font-semibold text-navy-700">
-                  Contractor / Person Aadhaar Number <span className="text-red-500">*</span>
+                  Aadhaar Number <span className="text-red-500">*</span>
                 </label>
                 <input
                   placeholder="e.g. 9876 5432 1012"
@@ -783,7 +798,7 @@ export function ContractorOnboarding({ onNavigate }: { onNavigate: (id: ScreenId
               </div>
             </div>
 
-            {/* Run OCR & Document Verification Button */}
+            {/* Run Verification Button */}
             <div className="flex justify-end">
               <button
                 type="button"
@@ -794,81 +809,16 @@ export function ContractorOnboarding({ onNavigate }: { onNavigate: (id: ScreenId
                 {verifyingDocs ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Preprocessing & Scanning OCR...</span>
+                    <span>Verifying...</span>
                   </>
                 ) : (
                   <>
-                    <Sparkles className="h-4 w-4 text-amber-300" />
-                    <span>Run Automated Verification Scan</span>
+                    <ShieldCheck className="h-4 w-4 text-indigo-200" />
+                    <span>Submit for Verification</span>
                   </>
                 )}
               </button>
             </div>
-
-            {/* Verification Results Feedback Card */}
-            {docVerificationResult && (
-              <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm space-y-3">
-                <div className="flex items-center justify-between border-b pb-2">
-                  <span className="text-xs font-bold text-navy-800">Verification Result Summary</span>
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
-                      docVerificationResult.verificationStatus === 'AUTOMATED_VERIFICATION_PASSED'
-                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                        : docVerificationResult.verificationStatus === 'VERIFICATION_REQUIRED'
-                        ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                        : 'bg-red-100 text-red-800 border border-red-300'
-                    }`}
-                  >
-                    {docVerificationResult.verificationStatus === 'AUTOMATED_VERIFICATION_PASSED'
-                      ? '✓ AUTOMATED VERIFICATION PASSED'
-                      : docVerificationResult.verificationStatus === 'VERIFICATION_REQUIRED'
-                      ? '⚠️ VERIFICATION REQUIRED (ADMIN REVIEW)'
-                      : '❌ VERIFICATION FAILED'}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="flex items-center justify-between rounded bg-gray-50 p-2">
-                    <span>Aadhaar Number Format:</span>
-                    <span className={docVerificationResult.aadhaarFormatValid ? 'text-emerald-600 font-bold' : 'text-red-600 font-bold'}>
-                      {docVerificationResult.aadhaarFormatValid ? '✓ Valid (12-digit)' : '❌ Invalid'}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between rounded bg-gray-50 p-2">
-                    <span>Company PAN Format:</span>
-                    <span className={docVerificationResult.panFormatValid ? 'text-emerald-600 font-bold' : 'text-red-600 font-bold'}>
-                      {docVerificationResult.panFormatValid ? '✓ Valid (10-char)' : '❌ Invalid'}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between rounded bg-gray-50 p-2">
-                    <span>Aadhaar Match:</span>
-                    <span className={docVerificationResult.aadhaarNumberMatch ? 'text-emerald-600 font-bold' : 'text-amber-600 font-bold'}>
-                      {docVerificationResult.aadhaarNumberMatch ? '✓ Matched' : '⚠️ Discrepancy'}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between rounded bg-gray-50 p-2">
-                    <span>Company PAN Match:</span>
-                    <span className={docVerificationResult.panNumberMatch ? 'text-emerald-600 font-bold' : 'text-amber-600 font-bold'}>
-                      {docVerificationResult.panNumberMatch ? '✓ Matched' : '⚠️ Discrepancy'}
-                    </span>
-                  </div>
-                </div>
-
-                {docVerificationResult.mismatchFlags && docVerificationResult.mismatchFlags.length > 0 && (
-                  <div className="rounded-lg bg-amber-50 p-2.5 text-[11px] text-amber-900 border border-amber-200">
-                    <p className="font-semibold mb-1">Detected Items Flagged for Admin Review:</p>
-                    <ul className="list-disc pl-4 space-y-0.5">
-                      {docVerificationResult.mismatchFlags.map((flag, idx) => (
-                        <li key={idx}>{flag}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         )}
 

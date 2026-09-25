@@ -555,29 +555,61 @@ router.post(
         return;
       }
 
-      let aadhaarDocUrl = '';
-      let companyPanDocUrl = '';
+      let profile = await ContractorProfile.findOne({ userId: req.userId });
+
+      let aadhaarDocUrl = profile?.aadhaarDocumentUrl || profile?.documentVerification?.aadhaarDocUrl || '';
+      let companyPanDocUrl = profile?.companyPanDocumentUrl || profile?.documentVerification?.companyPanDocUrl || '';
+
+      let aadhaarBuffer: Buffer | undefined = aadhaarFile?.buffer;
+      let panBuffer: Buffer | undefined = panFile?.buffer;
 
       if (aadhaarFile) {
         const saved = saveBufferToUploads(aadhaarFile.buffer, aadhaarFile.originalname);
         aadhaarDocUrl = saved.url;
+      } else if (aadhaarDocUrl && !aadhaarBuffer) {
+        const filename = path.basename(aadhaarDocUrl);
+        const diskPath = path.join(UPLOADS_DIR, filename);
+        if (fs.existsSync(diskPath)) {
+          try {
+            aadhaarBuffer = fs.readFileSync(diskPath);
+          } catch (e) {
+            console.warn('Could not read existing aadhaar doc buffer:', e);
+          }
+        }
       }
 
       if (panFile) {
         const saved = saveBufferToUploads(panFile.buffer, panFile.originalname);
         companyPanDocUrl = saved.url;
+      } else if (companyPanDocUrl && !panBuffer) {
+        const filename = path.basename(companyPanDocUrl);
+        const diskPath = path.join(UPLOADS_DIR, filename);
+        if (fs.existsSync(diskPath)) {
+          try {
+            panBuffer = fs.readFileSync(diskPath);
+          } catch (e) {
+            console.warn('Could not read existing pan doc buffer:', e);
+          }
+        }
       }
 
+      const targetAadhaar = aadhaarNumber !== undefined && aadhaarNumber !== ''
+        ? aadhaarNumber
+        : (profile?.aadhaarNumber || profile?.documentVerification?.aadhaarNumberEntered || '');
+      const targetPan = companyPanNumber !== undefined && companyPanNumber !== ''
+        ? companyPanNumber
+        : (profile?.companyPanNumber || profile?.documentVerification?.companyPanEntered || '');
+
       const result = await processContractorDocumentVerification({
-        aadhaarNumberEntered: aadhaarNumber || '',
-        companyPanEntered: companyPanNumber || '',
+        aadhaarNumberEntered: targetAadhaar,
+        companyPanEntered: targetPan,
         fullName: fullName || user.fullName,
-        businessName: businessName || '',
-        aadhaarDocBuffer: aadhaarFile?.buffer,
-        aadhaarDocFilename: aadhaarFile?.originalname,
+        businessName: businessName || profile?.businessName || '',
+        aadhaarDocBuffer: aadhaarBuffer,
+        aadhaarDocFilename: aadhaarFile?.originalname || (aadhaarDocUrl ? path.basename(aadhaarDocUrl) : undefined),
         aadhaarDocUrl,
-        companyPanDocBuffer: panFile?.buffer,
-        companyPanDocFilename: panFile?.originalname,
+        companyPanDocBuffer: panBuffer,
+        companyPanDocFilename: panFile?.originalname || (companyPanDocUrl ? path.basename(companyPanDocUrl) : undefined),
         companyPanDocUrl,
       });
 
@@ -586,11 +618,11 @@ router.post(
           ? 'VERIFIED'
           : 'PENDING';
 
-      const profile = await ContractorProfile.findOneAndUpdate(
+      profile = await ContractorProfile.findOneAndUpdate(
         { userId: req.userId },
         {
-          aadhaarNumber: aadhaarNumber || '',
-          companyPanNumber: companyPanNumber || '',
+          aadhaarNumber: targetAadhaar,
+          companyPanNumber: targetPan,
           aadhaarDocumentUrl: aadhaarDocUrl,
           companyPanDocumentUrl: companyPanDocUrl,
           kycDocumentUrls: [aadhaarDocUrl, companyPanDocUrl].filter(Boolean),

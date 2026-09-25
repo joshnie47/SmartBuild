@@ -8,6 +8,7 @@ import { t } from '../i18n';
 import {
   apiGetContractorProfileMe,
   apiSaveContractorProfile,
+  apiVerifyContractorDocuments,
   apiAnalyzePortfolioImage,
   apiConfirmPortfolioAi,
   apiReplacePortfolioImage,
@@ -98,6 +99,87 @@ export function ContractorProfile({ onNavigate }: { onNavigate: (id: ScreenId) =
   const [companyPanNum, setCompanyPanNum] = useState('');
   const [aadhaarDocUrl, setAadhaarDocUrl] = useState('');
   const [companyPanDocUrl, setCompanyPanDocUrl] = useState('');
+
+  // Verification modal & action state
+  const [verificationModalOpen, setVerificationModalOpen] = useState(false);
+  const [modalAadhaar, setModalAadhaar] = useState('');
+  const [modalPan, setModalPan] = useState('');
+  const [modalAadhaarFile, setModalAadhaarFile] = useState<File | null>(null);
+  const [modalPanFile, setModalPanFile] = useState<File | null>(null);
+  const [verifyingDocs, setVerifyingDocs] = useState(false);
+  const [verificationError, setVerificationError] = useState('');
+  const [verificationSuccessMsg, setVerificationSuccessMsg] = useState<string | null>(null);
+
+  const modalAadhaarInputRef = useRef<HTMLInputElement>(null);
+  const modalPanInputRef = useRef<HTMLInputElement>(null);
+
+  const formatMaskedAadhaar = (num?: string) => {
+    if (!num || !num.trim()) return 'Not Provided';
+    const cleaned = num.replace(/[\s-]/g, '').trim();
+    if (cleaned.length < 4) return 'Not Provided';
+    return `XXXX XXXX ${cleaned.slice(-4)}`;
+  };
+
+  const formatMaskedPan = (num?: string) => {
+    if (!num || !num.trim()) return 'Not Provided';
+    const cleaned = num.replace(/[\s-]/g, '').trim().toUpperCase();
+    if (cleaned.length < 5) return 'Not Provided';
+    return cleaned;
+  };
+
+  const openVerificationModal = () => {
+    setModalAadhaar(aadhaarNum || docVerification?.aadhaarNumberEntered || '');
+    setModalPan(companyPanNum || docVerification?.companyPanEntered || '');
+    setModalAadhaarFile(null);
+    setModalPanFile(null);
+    setVerificationError('');
+    setVerificationSuccessMsg(null);
+    setVerificationModalOpen(true);
+  };
+
+  const handleRunDocumentVerification = async () => {
+    if (!modalAadhaar.trim() && !modalPan.trim()) {
+      setVerificationSuccessMsg(null);
+      setVerificationError('✕ Verification unsuccessful. The submitted details do not match the uploaded documents.');
+      return;
+    }
+    setVerifyingDocs(true);
+    setVerificationError('');
+    setVerificationSuccessMsg(null);
+    try {
+      const res = await apiVerifyContractorDocuments({
+        aadhaarNumber: modalAadhaar.trim(),
+        companyPanNumber: modalPan.trim(),
+        fullName,
+        businessName,
+        aadhaarFile: modalAadhaarFile,
+        panFile: modalPanFile,
+      });
+
+      setDocVerification(res.verification);
+      if (res.profile?.aadhaarNumber) setAadhaarNum(res.profile.aadhaarNumber);
+      if (res.profile?.companyPanNumber) setCompanyPanNum(res.profile.companyPanNumber);
+      if (res.profile?.aadhaarDocumentUrl) setAadhaarDocUrl(res.profile.aadhaarDocumentUrl);
+      if (res.profile?.companyPanDocumentUrl) setCompanyPanDocUrl(res.profile.companyPanDocumentUrl);
+      if (res.profile?.kycStatus) setKycStatus(res.profile.kycStatus);
+      setIsVerified(res.profile?.kycStatus === 'VERIFIED');
+
+      const status = res.verification?.verificationStatus;
+      if (status === 'AUTOMATED_VERIFICATION_PASSED') {
+        setVerificationSuccessMsg('✓ Verification successful. Your contractor profile has been verified.');
+        setVerificationError('');
+      } else {
+        setVerificationSuccessMsg(null);
+        setVerificationError('✕ Verification unsuccessful. The submitted details do not match the uploaded documents.');
+      }
+    } catch (err: unknown) {
+      console.error('Verification error:', err);
+      setVerificationSuccessMsg(null);
+      setVerificationError('✕ Verification unsuccessful. The submitted details do not match the uploaded documents.');
+    } finally {
+      setVerifyingDocs(false);
+    }
+  };
 
   const fetchProfile = async () => {
     try {
@@ -575,8 +657,8 @@ export function ContractorProfile({ onNavigate }: { onNavigate: (id: ScreenId) =
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-indigo-600" />
               <div>
-                <h3 className="text-sm font-bold text-navy-800">Automated Document Verification</h3>
-                <p className="text-[11px] text-gray-500">OCR pattern extraction & format consistency checks</p>
+                <h3 className="text-sm font-bold text-navy-800">Contractor Document Verification</h3>
+                <p className="text-[11px] text-gray-500">Provide the required details and documents for verification.</p>
               </div>
             </div>
             <span
@@ -589,55 +671,62 @@ export function ContractorProfile({ onNavigate }: { onNavigate: (id: ScreenId) =
               }`}
             >
               {docVerification?.verificationStatus === 'AUTOMATED_VERIFICATION_PASSED'
-                ? '✓ VERIFIED / PASSED'
+                ? '✓ Verified'
                 : docVerification?.verificationStatus === 'VERIFICATION_REQUIRED'
-                ? '⚠️ VERIFICATION REQUIRED'
-                : '❌ VERIFICATION FAILED'}
+                ? '⚠️ Verification Required'
+                : '✕ Verification Failed'}
             </span>
           </div>
 
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div className="rounded bg-gray-50 p-2.5 border border-gray-100">
               <span className="text-gray-500 block text-[10px]">Aadhaar Number</span>
-              <span className="font-mono font-semibold text-navy-900">{aadhaarNum || 'Not Provided'}</span>
+              <span className="font-mono font-semibold text-navy-900">
+                {formatMaskedAadhaar(aadhaarNum || docVerification?.aadhaarNumberEntered)}
+              </span>
             </div>
             <div className="rounded bg-gray-50 p-2.5 border border-gray-100">
               <span className="text-gray-500 block text-[10px]">Company PAN Number</span>
-              <span className="font-mono font-semibold text-navy-900">{companyPanNum || 'Not Provided'}</span>
+              <span className="font-mono font-semibold text-navy-900">
+                {formatMaskedPan(companyPanNum || docVerification?.companyPanEntered)}
+              </span>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div className="flex items-center justify-between rounded bg-gray-50 p-2 border border-gray-100">
-              <span className="text-gray-600">Aadhaar Format:</span>
-              <span className={docVerification?.aadhaarFormatValid ? 'font-bold text-emerald-600' : 'font-bold text-amber-600'}>
-                {docVerification?.aadhaarFormatValid ? '✓ Valid' : '⚠️ Pending / Invalid'}
+              <span className="text-gray-600">Aadhaar Document:</span>
+              <span className={(aadhaarDocUrl || docVerification?.aadhaarDocUrl) ? 'font-bold text-emerald-600' : 'font-bold text-amber-600'}>
+                {(aadhaarDocUrl || docVerification?.aadhaarDocUrl) ? '✓ Uploaded' : '⚠️ Missing File'}
               </span>
             </div>
             <div className="flex items-center justify-between rounded bg-gray-50 p-2 border border-gray-100">
-              <span className="text-gray-600">Company PAN Format:</span>
-              <span className={docVerification?.panFormatValid ? 'font-bold text-emerald-600' : 'font-bold text-amber-600'}>
-                {docVerification?.panFormatValid ? '✓ Valid' : '⚠️ Pending / Invalid'}
+              <span className="text-gray-600">Company PAN Document:</span>
+              <span className={(companyPanDocUrl || docVerification?.companyPanDocUrl) ? 'font-bold text-emerald-600' : 'font-bold text-amber-600'}>
+                {(companyPanDocUrl || docVerification?.companyPanDocUrl) ? '✓ Uploaded' : '⚠️ Missing File'}
               </span>
             </div>
           </div>
 
-          {docVerification?.mismatchFlags && docVerification.mismatchFlags.length > 0 && (
-            <div className="rounded-lg bg-amber-50 p-2.5 text-[11px] text-amber-900 border border-amber-200">
-              <p className="font-semibold mb-1">Flagged Review Items:</p>
-              <ul className="list-disc pl-4 space-y-0.5">
-                {docVerification.mismatchFlags.map((flag: string, idx: number) => (
-                  <li key={idx}>{flag}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          <div className="flex items-start gap-1.5 rounded-lg bg-gray-50 p-2 text-[10px] text-gray-500 border border-gray-100">
-            <Info className="h-3.5 w-3.5 text-gray-400 shrink-0 mt-0.5" />
-            <span>
-              Disclaimer: Verification is based on OCR document scanning, pattern matching, format checking, and profile field consistency. It does not interface with government database APIs or certify official government registration.
-            </span>
+          {/* Verification Action Button */}
+          <div className="pt-2 border-t flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[11px] text-gray-500">
+              {docVerification?.verificationStatus === 'AUTOMATED_VERIFICATION_PASSED'
+                ? 'Your contractor profile is verified. Click to update verification details.'
+                : 'Provide required Aadhaar and PAN details & documents for verification.'}
+            </p>
+            <button
+              type="button"
+              onClick={openVerificationModal}
+              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors"
+            >
+              <ShieldCheck className="h-4 w-4 text-indigo-200" />
+              {docVerification?.verificationStatus === 'AUTOMATED_VERIFICATION_PASSED'
+                ? 'Update Verification Details'
+                : aadhaarNum || companyPanNum
+                ? 'Submit for Verification'
+                : 'Provide Verification Details'}
+            </button>
           </div>
         </div>
 
@@ -767,6 +856,186 @@ export function ContractorProfile({ onNavigate }: { onNavigate: (id: ScreenId) =
         onKeep={handleModalKeepImage}
         onClose={() => setPendingAiPhoto(null)}
       />
+
+      {/* Document Verification Modal */}
+      {verificationModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs animate-fadeIn">
+          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-6 w-6 text-indigo-600" />
+                <div>
+                  <h2 className="text-lg font-bold text-navy-900">Contractor Document Verification</h2>
+                  <p className="text-xs text-gray-500">Provide the required details and documents for verification.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setVerificationModalOpen(false)}
+                className="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {verificationError && (
+              <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-xs text-red-700 font-medium flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
+                <span>{verificationError}</span>
+              </div>
+            )}
+
+            {verificationSuccessMsg && (
+              <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-800 font-medium flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                <span>{verificationSuccessMsg}</span>
+              </div>
+            )}
+
+            {/* Inputs */}
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-navy-700">
+                  Aadhaar Number <span className="text-red-500">*</span>
+                </label>
+                <input
+                  placeholder="e.g. 9876 5432 1012"
+                  value={modalAadhaar}
+                  onChange={(e) => setModalAadhaar(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-xs font-mono text-navy-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                />
+                <p className="mt-1 text-[10px] text-gray-400">12 numeric digits (cannot start with 0 or 1)</p>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-navy-700">
+                  Company PAN Number <span className="text-red-500">*</span>
+                </label>
+                <input
+                  placeholder="e.g. ABCDE1234F"
+                  value={modalPan}
+                  onChange={(e) => setModalPan(e.target.value.toUpperCase())}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-xs font-mono text-navy-800 uppercase outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                />
+                <p className="mt-1 text-[10px] text-gray-400">10 characters (5 letters, 4 digits, 1 letter)</p>
+              </div>
+
+              {/* Document Uploads */}
+              <div className="space-y-3 pt-2">
+                {/* Aadhaar File Upload */}
+                <div>
+                  <div className="mb-1 flex items-center justify-between">
+                    <label className="text-xs font-semibold text-navy-700">Aadhaar Card Document (Image / PDF)</label>
+                    {(modalAadhaarFile || aadhaarDocUrl || docVerification?.aadhaarDocUrl) && (
+                      <span className="text-[11px] font-semibold text-emerald-600">
+                        ✓ {modalAadhaarFile ? modalAadhaarFile.name : 'Document On File'}
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    ref={modalAadhaarInputRef}
+                    type="file"
+                    accept="image/*,.pdf"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) setModalAadhaarFile(f);
+                    }}
+                    className="hidden"
+                  />
+                  <div
+                    onClick={() => modalAadhaarInputRef.current?.click()}
+                    className={`flex h-20 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed transition-colors ${
+                      modalAadhaarFile || aadhaarDocUrl || docVerification?.aadhaarDocUrl
+                        ? 'border-emerald-400 bg-emerald-50/50'
+                        : 'border-gray-300 hover:border-indigo-400 hover:bg-indigo-50/50'
+                    }`}
+                  >
+                    <div className="flex flex-col items-center gap-1 text-gray-500 text-xs">
+                      <Upload className={`h-5 w-5 ${modalAadhaarFile || aadhaarDocUrl ? 'text-emerald-600' : 'text-gray-400'}`} />
+                      <span>
+                        {modalAadhaarFile
+                          ? modalAadhaarFile.name
+                          : (aadhaarDocUrl || docVerification?.aadhaarDocUrl)
+                          ? 'Click to select new file (or keep existing document)'
+                          : 'Click to select Aadhaar Card (JPG, PNG, WebP, PDF)'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Company PAN File Upload */}
+                <div>
+                  <div className="mb-1 flex items-center justify-between">
+                    <label className="text-xs font-semibold text-navy-700">Company PAN Card Document (Image / PDF)</label>
+                    {(modalPanFile || companyPanDocUrl || docVerification?.companyPanDocUrl) && (
+                      <span className="text-[11px] font-semibold text-emerald-600">
+                        ✓ {modalPanFile ? modalPanFile.name : 'Document On File'}
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    ref={modalPanInputRef}
+                    type="file"
+                    accept="image/*,.pdf"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) setModalPanFile(f);
+                    }}
+                    className="hidden"
+                  />
+                  <div
+                    onClick={() => modalPanInputRef.current?.click()}
+                    className={`flex h-20 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed transition-colors ${
+                      modalPanFile || companyPanDocUrl || docVerification?.companyPanDocUrl
+                        ? 'border-emerald-400 bg-emerald-50/50'
+                        : 'border-gray-300 hover:border-indigo-400 hover:bg-indigo-50/50'
+                    }`}
+                  >
+                    <div className="flex flex-col items-center gap-1 text-gray-500 text-xs">
+                      <Upload className={`h-5 w-5 ${modalPanFile || companyPanDocUrl ? 'text-emerald-600' : 'text-gray-400'}`} />
+                      <span>
+                        {modalPanFile
+                          ? modalPanFile.name
+                          : (companyPanDocUrl || docVerification?.companyPanDocUrl)
+                          ? 'Click to select new file (or keep existing document)'
+                          : 'Click to select Company PAN Card (JPG, PNG, WebP, PDF)'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Action Buttons */}
+            <div className="flex items-center justify-end gap-2 pt-3 border-t">
+              <button
+                type="button"
+                onClick={() => setVerificationModalOpen(false)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={handleRunDocumentVerification}
+                disabled={verifyingDocs}
+                className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
+              >
+                {verifyingDocs ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Verifying...</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="h-4 w-4 text-indigo-200" />
+                    <span>Submit for Verification</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <MicButton />
     </div>
