@@ -162,7 +162,7 @@ router.post('/phone-register', async (req: Request, res: Response) => {
     const salt = await bcrypt.genSalt(12);
     const pinHash = await bcrypt.hash(pin.trim(), salt);
     const userRole = (role?.toLowerCase() === 'contractor' ? 'CONTRACTOR' : 'CLIENT') as 'CLIENT' | 'CONTRACTOR';
-    
+
     let cleanEmail: string | undefined;
     if (email && typeof email === 'string' && email.trim()) {
       cleanEmail = email.toLowerCase().trim();
