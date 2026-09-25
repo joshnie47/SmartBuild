@@ -40,7 +40,9 @@ function createTransporter() {
       secure,
       auth: { user, pass },
       tls: { rejectUnauthorized: false },
-    });
+      // Force IPv4 — prevents ENETUNREACH when IPv6 is unavailable on the network
+      family: 4,
+    } as any);
   }
 
   return null;

@@ -1,4 +1,7 @@
 import 'dotenv/config';
+import dns from 'dns';
+// Force IPv4-first globally — fixes ENETUNREACH errors on networks without IPv6
+dns.setDefaultResultOrder('ipv4first');
 import http from 'http';
 import express from 'express';
 import cors from 'cors';
