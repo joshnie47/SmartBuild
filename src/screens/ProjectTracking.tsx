@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Check, ChevronDown, MessageSquare, Clock, ArrowLeft, Star, AlertCircle, Loader2, ShieldCheck, X, Maximize2, FileText } from 'lucide-react';
 import { TopNav } from '../components/TopNav';
-import { MicButton } from '../components/ui';
 import type { ScreenId, Milestone, ProjectEvidenceItem } from '../types';
 import { useLocale } from '../i18n/LocaleContext';
 import { t } from '../i18n';
@@ -375,8 +374,6 @@ export function ProjectTracking({ onNavigate, projectId }: { onNavigate: (id: Sc
           </div>
         </div>
       )}
-
-      <MicButton />
     </div>
   );
 }

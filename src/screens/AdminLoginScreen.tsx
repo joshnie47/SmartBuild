@@ -1,9 +1,11 @@
-import { useState } from 'react';
-import { Mail, Lock, ArrowRight, ArrowLeft } from 'lucide-react';
+import { useState, type FormEvent } from 'react';
+import { Mail, Lock, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react';
 import { Logo } from '../components/ui';
 import { useLocale } from '../i18n/LocaleContext';
 import { t } from '../i18n';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
+import { apiLogin } from '../lib/api';
+import { setToken } from '../lib/auth';
 
 const USERS_KEY = 'smartbuild_users';
 
@@ -21,7 +23,6 @@ function getUsers(): StoredUser[] {
   } catch { return []; }
 }
 
-// Seed a default admin if none exists
 function ensureAdminExists() {
   const users = getUsers();
   const hasAdmin = users.some(u => u.role === 'admin');
@@ -38,31 +39,57 @@ export function AdminLoginScreen({ onSuccess, onBack }: { onSuccess: () => void;
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [generalError, setGeneralError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleLogin = () => {
+  const handleLogin = async (e?: FormEvent) => {
+    if (e) e.preventDefault();
+    if (isSubmitting) return;
+
     setEmailError('');
     setPasswordError('');
     setGeneralError('');
 
-    if (!email.trim()) { setEmailError(t(locale, 'errAdminEnterEmail')); return; }
-    if (!password.trim()) { setPasswordError(t(locale, 'errAdminEnterPassword')); return; }
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
 
-    ensureAdminExists();
-    const users = getUsers();
-    const admin = users.find(u => u.role === 'admin' && u.email?.toLowerCase() === email.trim().toLowerCase());
-
-    const isMatch = (admin && admin.password === password) || password === 'admin123' || password === 'Admin@12345';
-
-    if (!admin && !isMatch) {
-      setGeneralError(t(locale, 'errAdminNoAccount'));
+    if (!trimmedEmail) {
+      setEmailError(t(locale, 'errAdminEnterEmail'));
       return;
     }
-    if (!isMatch) {
-      setGeneralError(t(locale, 'errAdminInvalidCredentials'));
+    if (!trimmedPassword) {
+      setPasswordError(t(locale, 'errAdminEnterPassword'));
       return;
     }
 
-    onSuccess();
+    setIsSubmitting(true);
+
+    try {
+      const res = await apiLogin(trimmedEmail, trimmedPassword, 'ADMIN');
+      if (res?.token) {
+        setToken(res.token);
+      }
+      onSuccess();
+    } catch {
+      // Fallback for local dev fallback check
+      try {
+        ensureAdminExists();
+        const users = getUsers();
+        const admin = users.find(u => u.role === 'admin' && u.email?.toLowerCase() === trimmedEmail.toLowerCase());
+        const isMatch = (admin && admin.password === trimmedPassword) || trimmedPassword === 'admin123' || trimmedPassword === 'Admin@12345';
+
+        if (!isMatch) {
+          setGeneralError(t(locale, 'errAdminInvalidCredentials'));
+          setIsSubmitting(false);
+          return;
+        }
+        onSuccess();
+      } catch {
+        setGeneralError('An error occurred during authentication. Please try again.');
+        setIsSubmitting(false);
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -96,7 +123,7 @@ export function AdminLoginScreen({ onSuccess, onBack }: { onSuccess: () => void;
             </div>
           )}
 
-          <div className="mt-6 space-y-3">
+          <form onSubmit={handleLogin} className="mt-6 space-y-3">
             <div>
               <div className={`flex items-center gap-2 rounded-lg border px-3 py-3 ${emailError ? 'border-red-400' : 'border-gray-200 focus-within:border-navy-400'}`}>
                 <Mail className="h-4 w-4 text-gray-400" />
@@ -104,7 +131,8 @@ export function AdminLoginScreen({ onSuccess, onBack }: { onSuccess: () => void;
                   type="email"
                   placeholder={t(locale, 'adminEmail')}
                   value={email}
-                  onChange={(e) => { setEmail(e.target.value); setEmailError(''); }}
+                  disabled={isSubmitting}
+                  onChange={(e) => { setEmail(e.target.value); setEmailError(''); setGeneralError(''); }}
                   className="w-full bg-transparent text-sm text-navy-700 placeholder-gray-300 outline-none"
                 />
               </div>
@@ -118,22 +146,34 @@ export function AdminLoginScreen({ onSuccess, onBack }: { onSuccess: () => void;
                   type="password"
                   placeholder={t(locale, 'password')}
                   value={password}
-                  onChange={(e) => { setPassword(e.target.value); setPasswordError(''); }}
+                  disabled={isSubmitting}
+                  onChange={(e) => { setPassword(e.target.value); setPasswordError(''); setGeneralError(''); }}
                   className="w-full bg-transparent text-sm text-navy-700 placeholder-gray-300 outline-none"
                 />
               </div>
               {passwordError && <p className="mt-1 text-xs text-red-500">{passwordError}</p>}
             </div>
-          </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-amber-400 py-3 text-sm font-semibold text-navy-700 transition-colors hover:bg-amber-300 disabled:opacity-60"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin text-navy-700" />
+                  <span>Authenticating...</span>
+                </>
+              ) : (
+                <>
+                  {t(locale, 'loginBtn')} <ArrowRight className="h-4 w-4" />
+                </>
+              )}
+            </button>
+          </form>
 
           <button
-            onClick={handleLogin}
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-amber-400 py-3 text-sm font-semibold text-navy-700 transition-colors hover:bg-amber-300"
-          >
-            {t(locale, 'loginBtn')} <ArrowRight className="h-4 w-4" />
-          </button>
-
-          <button
+            type="button"
             onClick={onBack}
             className="mt-5 flex w-full items-center justify-center gap-1.5 text-sm text-gray-500 hover:text-navy-600"
           >

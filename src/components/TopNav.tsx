@@ -1,16 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Bell, Menu, ArrowLeft, CheckCheck, ExternalLink, Clock } from 'lucide-react';
+import { Bell, Menu, ArrowLeft, CheckCheck, ExternalLink, Clock } from 'lucide-react';
 import { Logo, Avatar } from './ui';
 import { useSidebar } from './sidebar-context';
 import type { ScreenId, ApiNotificationItem } from '../types';
-import { apiGetNotifications, apiMarkNotificationRead, apiMarkAllNotificationsRead } from '../lib/api';
+import { apiGetNotifications, apiMarkNotificationRead, apiMarkAllNotificationsRead, apiGetMe } from '../lib/api';
+
 import { useLocale } from '../i18n/LocaleContext';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
 export function TopNav({
   showSearch = true,
   avatarSrc,
-  avatarName = 'Arjun Mehta',
+  avatarName,
   onNavigate,
 }: {
   showSearch?: boolean;
@@ -24,7 +25,19 @@ export function TopNav({
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [showNotifications, setShowNotifications] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [userMe, setUserMe] = useState<{ fullName?: string; profileImage?: string } | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!avatarName || avatarName === 'Arjun Mehta') {
+      apiGetMe()
+        .then((u) => setUserMe({ fullName: u.fullName, profileImage: u.profileImage }))
+        .catch(() => {});
+    }
+  }, [avatarName]);
+
+  const resolvedAvatarName = (avatarName && avatarName !== 'Arjun Mehta') ? avatarName : (userMe?.fullName || 'User');
+  const resolvedAvatarSrc = avatarSrc || userMe?.profileImage;
 
   const fetchNotifications = async () => {
     try {
@@ -58,6 +71,14 @@ export function TopNav({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showNotifications]);
 
+  const getLocalizedTitle = (n: ApiNotificationItem) => {
+    if (n.type === 'CHAT_MESSAGE' || n.title.startsWith('New message from ')) {
+      const name = n.title.replace(/^New message from\s*/i, '').trim();
+      return t('newMessageFrom', { name: name || 'User' });
+    }
+    return n.title;
+  };
+
   const handleNotificationClick = async (n: ApiNotificationItem) => {
     if (!n.isRead) {
       try {
@@ -71,11 +92,17 @@ export function TopNav({
       }
     }
     setShowNotifications(false);
-    if (n.projectId && onNavigate) {
-      if (n.type === 'BID_ACCEPTED' || n.type === 'PROJECT_AWARDED') {
-        onNavigate('project-tracking', String(n.projectId));
+    if (onNavigate) {
+      if (n.type === 'CHAT_MESSAGE') {
+        onNavigate('chat', n.projectId ? String(n.projectId) : undefined);
+      } else if (n.projectId) {
+        if (n.type === 'BID_ACCEPTED' || n.type === 'PROJECT_AWARDED') {
+          onNavigate('project-tracking', String(n.projectId));
+        } else {
+          onNavigate('contractor-results', String(n.projectId));
+        }
       } else {
-        onNavigate('contractor-results', String(n.projectId));
+        onNavigate('chat');
       }
     }
   };
@@ -108,19 +135,9 @@ export function TopNav({
 
       <Logo variant="dark" />
 
-      {showSearch && (
-        <div className="ml-4 hidden flex-1 max-w-md items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 md:flex">
-          <Search className="h-4 w-4 text-gray-400" />
-          <input
-            placeholder={t('searchPlaceholder')}
-            className="w-full bg-transparent text-sm text-navy-700 placeholder-gray-400 outline-none"
-          />
-        </div>
-      )}
-
       <div className="ml-auto flex items-center gap-1 md:gap-2">
+        {/* Global Language Selector near Notifications */}
         <LanguageSwitcher variant="header" />
-
 
         <div className="relative" ref={dropdownRef}>
           <button
@@ -183,7 +200,7 @@ export function TopNav({
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-bold text-navy-700">{n.title}</span>
+                            <span className="text-xs font-bold text-navy-700">{getLocalizedTitle(n)}</span>
                             {!n.isRead && (
                               <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
                             )}
@@ -209,7 +226,7 @@ export function TopNav({
         </div>
 
         <button className="ml-1">
-          <Avatar src={avatarSrc} alt={avatarName} size="md" />
+          <Avatar src={resolvedAvatarSrc} alt={resolvedAvatarName} size="md" />
         </button>
       </div>
     </header>

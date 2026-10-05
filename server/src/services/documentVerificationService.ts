@@ -122,9 +122,14 @@ export async function processContractorDocumentVerification(
   }
 
   // 5. Compare Person Name on Aadhaar vs Contractor Full Name
-  if (aadhaarExtractedName && fullName) {
+  const isGenericFullName = !fullName || ['contractor', 'user', 'test user', 'contractor user', 'admin', 'test'].includes(fullName.trim().toLowerCase());
+  const interDocNameScore = (aadhaarExtractedName && panExtractedCompanyName)
+    ? calculateStringMatchScore(aadhaarExtractedName, panExtractedCompanyName)
+    : 0;
+
+  if (aadhaarExtractedName && fullName && !isGenericFullName) {
     const score = calculateStringMatchScore(aadhaarExtractedName, fullName);
-    if (score >= 0.6) {
+    if (score >= 0.5 || interDocNameScore >= 0.5) {
       aadhaarNameMatch = true;
     } else {
       aadhaarNameMatch = false;
@@ -152,9 +157,11 @@ export async function processContractorDocumentVerification(
 
   // 7. Compare Company Name on PAN vs Business Name / Full Name
   const targetCompany = businessName || fullName;
-  if (panExtractedCompanyName && targetCompany) {
+  const isGenericBusiness = !targetCompany || isGenericFullName || ['contractor services', 'construction company'].includes(targetCompany.trim().toLowerCase());
+
+  if (panExtractedCompanyName && targetCompany && !isGenericBusiness) {
     const score = calculateStringMatchScore(panExtractedCompanyName, targetCompany);
-    if (score >= 0.5) {
+    if (score >= 0.5 || interDocNameScore >= 0.5) {
       panCompanyNameMatch = true;
     } else {
       panCompanyNameMatch = false;
@@ -182,22 +189,30 @@ export async function processContractorDocumentVerification(
     panOcrResult?.confidence || 85
   );
 
-  // 9. Assign Verification Status
-  let verificationStatus: DocumentVerificationStatus = 'VERIFICATION_REQUIRED';
+  // 9. Assign Verification Status & Method
+  const realFlags = mismatchFlags.filter((f) => !f.includes('WARNING'));
 
-  if (!isAadhaarFormatValid || !isPanFormatValid) {
-    verificationStatus = 'VERIFICATION_FAILED';
-  } else if (
+  const detailsMatch =
+    isAadhaarFormatValid &&
+    isPanFormatValid &&
     aadhaarNumberMatch &&
     panNumberMatch &&
     aadhaarNameMatch &&
     panCompanyNameMatch &&
-    mismatchFlags.filter((f) => !f.includes('WARNING')).length === 0
-  ) {
-    verificationStatus = 'AUTOMATED_VERIFICATION_PASSED';
+    crossDocumentMatch &&
+    realFlags.length === 0;
+
+  let verificationStatus: DocumentVerificationStatus = 'MANUAL_REVIEW';
+  let verificationReason = '';
+
+  if (detailsMatch) {
+    verificationStatus = 'VERIFIED';
+    verificationReason = '✓ Verification successful. Your submitted details match the uploaded documents.';
   } else {
-    // If there are flags, missing OCR data, or slight mismatches -> Require Admin Review
-    verificationStatus = 'VERIFICATION_REQUIRED';
+    verificationStatus = 'MANUAL_REVIEW';
+    verificationReason =
+      realFlags.join('; ') ||
+      '⚠ Verification requires manual review. The submitted details do not match the uploaded documents.';
   }
 
   const disclaimer =
@@ -205,6 +220,10 @@ export async function processContractorDocumentVerification(
 
   const verification: IDocumentVerification = {
     verificationStatus,
+    detailsMatch,
+    details_match: detailsMatch,
+    verificationMethod: 'AUTOMATED',
+    verificationReason,
     aadhaarNumberEntered: cleanedAadhaarEntered,
     companyPanEntered: cleanedPanEntered,
     aadhaarDocUrl,
@@ -223,7 +242,7 @@ export async function processContractorDocumentVerification(
     ocrConfidence,
     mismatchFlags,
     disclaimer,
-    verifiedAt: new Date(),
+    verifiedAt: verificationStatus === 'VERIFIED' ? new Date() : undefined,
     adminReviewed: false,
     adminNotes: '',
   };

@@ -93,6 +93,7 @@ export function AuthScreen({
   const [pinNewPin, setPinNewPin] = useState('');
   const [pinShowNewPin, setPinShowNewPin] = useState(false);
   const [pinConfirmNewPin, setPinConfirmNewPin] = useState('');
+  const [pinShowConfirmPin, setPinShowConfirmPin] = useState(false);
   const [pinResetToken, setPinResetToken] = useState('');
   const [pinError2, setPinError2] = useState('');
   const [pinSuccess, setPinSuccess] = useState('');
@@ -505,6 +506,7 @@ export function AuthScreen({
     setPinError2('');
     setPinSuccess('');
     setPinShowNewPin(false);
+    setPinShowConfirmPin(false);
     setPinResendCooldown(0);
     setPinResendBanner('');
     setPinNoEmail(false);
@@ -588,7 +590,7 @@ export function AuthScreen({
     setPinError2('');
     if (!pinNewPin.trim()) { setPinError2(t(locale, 'errEnterPin')); return; }
     if (!/^\d{6}$/.test(pinNewPin.trim())) { setPinError2(t(locale, 'errValidPin')); return; }
-    if (!pinConfirmNewPin.trim()) { setPinError2(t(locale, 'errConfirmPassword')); return; }
+    if (!pinConfirmNewPin.trim()) { setPinError2('Please confirm your new 6-digit PIN.'); return; }
     if (pinNewPin.trim() !== pinConfirmNewPin.trim()) { setPinError2(t(locale, 'errPinMismatch')); return; }
     setPinLoading(true);
     try {

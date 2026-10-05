@@ -176,4 +176,8 @@ const ProjectSchema = new Schema<IProject>(
   { timestamps: true }
 );
 
+ProjectSchema.index({ title: 'text', description: 'text', category: 'text', location: 'text' });
+ProjectSchema.index({ status: 1, category: 1, location: 1, budget: 1 });
+
 export const Project = mongoose.model<IProject>('Project', ProjectSchema);
+

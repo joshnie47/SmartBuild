@@ -36,6 +36,8 @@ export function LanguageSwitcher({ variant = 'header', className = '' }: Languag
         return 'English';
       case 'ta':
         return 'தமிழ்';
+      case 'hi':
+        return 'हिन्दी';
       default:
         return LOCALE_LABELS[l];
     }
@@ -52,7 +54,7 @@ export function LanguageSwitcher({ variant = 'header', className = '' }: Languag
           type="button"
           onClick={() => setIsOpen(!isOpen)}
           className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-xs font-semibold text-gray-300 hover:bg-navy-800 hover:text-white transition-colors"
-          title="Change Language / மொழியை மாற்றுக"
+          title="Change Language / மொழியை மாற்றுக / भाषा बदलें"
         >
           <div className="flex items-center gap-2">
             <Globe className="h-4 w-4 text-amber-400" />
@@ -67,7 +69,7 @@ export function LanguageSwitcher({ variant = 'header', className = '' }: Languag
           type="button"
           onClick={() => setIsOpen(!isOpen)}
           className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-navy-700 hover:bg-navy-50 hover:border-gray-300 shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-amber-400/50"
-          title="Change Language / மொழியை மாற்றுக"
+          title="Change Language / மொழியை மாற்றுக / भाषा बदलें"
           aria-label="Select Language"
         >
           <Globe className="h-4 w-4 text-navy-600" strokeWidth={1.8} />

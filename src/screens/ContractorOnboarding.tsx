@@ -108,7 +108,7 @@ export function ContractorOnboarding({ onNavigate }: { onNavigate: (id: ScreenId
   const handleRunDocumentVerification = async () => {
     if (!aadhaarNumber.trim() && !companyPanNumber.trim()) {
       setDocVerificationSuccessMsg(null);
-      setError('✕ Verification unsuccessful. The submitted details do not match the uploaded documents.');
+      setError('⚠ Verification requires manual review. The submitted details do not match the uploaded documents.');
       return;
     }
     setVerifyingDocs(true);
@@ -126,17 +126,30 @@ export function ContractorOnboarding({ onNavigate }: { onNavigate: (id: ScreenId
       if (res.profile?.aadhaarDocumentUrl) setAadhaarDocUrl(res.profile.aadhaarDocumentUrl);
       if (res.profile?.companyPanDocumentUrl) setCompanyPanDocUrl(res.profile.companyPanDocumentUrl);
 
-      if (res.verification?.verificationStatus === 'AUTOMATED_VERIFICATION_PASSED') {
-        setDocVerificationSuccessMsg('✓ Verification successful. Your contractor profile has been verified.');
+      const status = res.verification?.verificationStatus;
+      const detailsMatch = res.verification?.detailsMatch ?? res.verification?.details_match;
+
+      if (status === 'VERIFIED' || status === 'AUTOMATED_VERIFICATION_PASSED') {
+        if (res.verification?.adminReviewed) {
+          setDocVerificationSuccessMsg('✓ Verification successful. Your documents have been verified.');
+        } else {
+          setDocVerificationSuccessMsg('✓ Verification successful. Your submitted details match the uploaded documents.');
+        }
         setError('');
-      } else {
+      } else if (status === 'MANUAL_REVIEW' || status === 'VERIFICATION_REQUIRED' || detailsMatch === false) {
+        setDocVerificationSuccessMsg(null);
+        setError('⚠ Verification requires manual review. The submitted details do not match the uploaded documents.');
+      } else if (status === 'REJECTED') {
         setDocVerificationSuccessMsg(null);
         setError('✕ Verification unsuccessful. The submitted details do not match the uploaded documents.');
+      } else {
+        setDocVerificationSuccessMsg(null);
+        setError(res.verification?.verificationReason || '⚠ Verification requires manual review. The submitted details do not match the uploaded documents.');
       }
     } catch (err: unknown) {
       console.error('Doc verification error:', err);
       setDocVerificationSuccessMsg(null);
-      setError('✕ Verification unsuccessful. The submitted details do not match the uploaded documents.');
+      setError('⚠ Verification requires manual review. The submitted details do not match the uploaded documents.');
     } finally {
       setVerifyingDocs(false);
     }

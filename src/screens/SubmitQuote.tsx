@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Calendar, IndianRupee, Loader2 } from 'lucide-react';
 import { TopNav } from '../components/TopNav';
-import { MicInline, MicButton } from '../components/ui';
+import { ToggleSwitch } from '../components/ui';
 import type { ScreenId } from '../types';
 import { useLocale } from '../i18n/LocaleContext';
 import { t } from '../i18n';
@@ -113,40 +113,37 @@ export function SubmitQuote({
         ) : (
           <div className="mt-6 space-y-5">
             {error && (
-              <div className="rounded-lg bg-red-50 p-3 text-xs text-red-600">
-                {error}
+              <div className="rounded-xl bg-amber-50 p-4 border border-amber-200 space-y-2">
+                <p className="text-xs font-semibold text-amber-900">{error}</p>
+                {error.toLowerCase().includes('verification') && (
+                  <button
+                    onClick={() => onNavigate('contractor-profile')}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-amber-600 shadow-xs"
+                  >
+                    Complete Verification
+                  </button>
+                )}
               </div>
             )}
 
             {/* Quoted price */}
             <div>
-              <div className="mb-1.5 flex items-center justify-between">
-                <label className="text-sm font-medium text-navy-600">
-                  {t(locale, 'quotedPrice') || 'Quoted Price (₹)'}
-                </label>
-                <div className="flex items-center gap-1">
-                  <span className="text-xs text-gray-400">₹</span>
-                  <input
-                    type="number"
-                    value={price}
-                    onChange={(e) => setPrice(Number(e.target.value))}
-                    className="w-36 rounded-lg border border-gray-200 px-2.5 py-1 text-right text-sm font-bold text-navy-700 outline-none focus:border-navy-400"
-                  />
-                </div>
+              <label className="block text-sm font-semibold text-navy-700 mb-1.5">
+                {t(locale, 'quotedPrice') || 'Quoted Price (₹)'} <span className="text-red-500">*</span>
+              </label>
+              <div className="relative flex items-center rounded-xl border border-gray-200 bg-gray-50/50 px-3.5 py-2.5 focus-within:border-navy-500 focus-within:bg-white shadow-xs">
+                <span className="text-base font-bold text-navy-600 mr-2">₹</span>
+                <input
+                  type="number"
+                  min={1}
+                  required
+                  placeholder="Enter manual quotation amount (e.g. 250000)"
+                  value={price || ''}
+                  onChange={(e) => setPrice(Math.max(0, Number(e.target.value)))}
+                  className="w-full bg-transparent text-base font-bold text-navy-800 outline-none placeholder-gray-400"
+                />
               </div>
-              <input
-                type="range"
-                min={10000}
-                max={maxSliderPrice}
-                step={10000}
-                value={Math.min(price, maxSliderPrice)}
-                onChange={(e) => setPrice(Number(e.target.value))}
-                className="w-full accent-amber-400"
-              />
-              <div className="mt-1 flex justify-between text-xs text-gray-400">
-                <span>₹10,000</span>
-                <span>₹{maxSliderPrice.toLocaleString('en-IN')}</span>
-              </div>
+              <p className="mt-1 text-xs text-gray-500">Enter the exact numeric quotation value for this project.</p>
             </div>
 
             {/* Estimated days */}
@@ -158,7 +155,7 @@ export function SubmitQuote({
                 <button
                   type="button"
                   onClick={() => setDays(Math.max(1, days - 1))}
-                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 text-navy-600 hover:bg-gray-50"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 text-navy-600 hover:bg-gray-50 font-bold"
                 >
                   −
                 </button>
@@ -166,7 +163,7 @@ export function SubmitQuote({
                 <button
                   type="button"
                   onClick={() => setDays(days + 1)}
-                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 text-navy-600 hover:bg-gray-50"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 text-navy-600 hover:bg-gray-50 font-bold"
                 >
                   +
                 </button>
@@ -174,24 +171,18 @@ export function SubmitQuote({
             </div>
 
             {/* Materials toggle */}
-            <div className="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-3">
+            <div className="flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3 bg-gray-50/50">
               <div>
-                <p className="text-sm font-medium text-navy-600">Materials Included</p>
+                <p className="text-sm font-bold text-navy-800">Materials Included</p>
                 <p className="text-xs text-gray-500">Price covers all required construction materials</p>
               </div>
-              <button
-                type="button"
-                onClick={() => setMaterialsIncluded(!materialsIncluded)}
-                className={`relative h-6 w-11 rounded-full transition-colors ${
-                  materialsIncluded ? 'bg-amber-400' : 'bg-gray-300'
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-soft transition-transform ${
-                    materialsIncluded ? 'translate-x-5' : 'translate-x-0.5'
-                  }`}
-                />
-              </button>
+              <ToggleSwitch
+                checked={materialsIncluded}
+                onChange={setMaterialsIncluded}
+                onLabel="YES"
+                offLabel="NO"
+                ariaLabel="Materials Included"
+              />
             </div>
 
             {/* Warranty */}
@@ -209,16 +200,13 @@ export function SubmitQuote({
             {/* Proposal note */}
             <div>
               <label className="mb-1.5 block text-sm font-medium text-navy-600">Proposal Note</label>
-              <div className="flex items-start rounded-lg border border-gray-200 px-3 py-2 focus-within:border-navy-400">
-                <textarea
-                  rows={3}
-                  value={proposal}
-                  onChange={(e) => setProposal(e.target.value)}
-                  placeholder="Describe your approach, materials, timeline, and team qualifications..."
-                  className="w-full resize-none bg-transparent text-sm text-navy-700 placeholder-gray-300 outline-none"
-                />
-                <MicInline />
-              </div>
+              <textarea
+                rows={3}
+                value={proposal}
+                onChange={(e) => setProposal(e.target.value)}
+                placeholder="Describe your approach, materials, timeline, and team qualifications..."
+                className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm text-navy-700 placeholder-gray-300 outline-none focus:border-navy-400"
+              />
             </div>
 
             {/* Availability date */}
@@ -250,7 +238,6 @@ export function SubmitQuote({
           </div>
         )}
       </div>
-      <MicButton />
     </div>
   );
 }

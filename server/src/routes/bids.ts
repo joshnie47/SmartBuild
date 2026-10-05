@@ -58,6 +58,23 @@ router.post('/', protect, async (req: AuthRequest, res: Response) => {
       return;
     }
 
+    const user = await User.findById(req.userId);
+    const profile = await ContractorProfile.findOne({ userId: req.userId });
+    const isVerified = Boolean(
+      user?.isVerified === true ||
+      profile?.kycStatus === 'VERIFIED' ||
+      profile?.documentVerification?.verificationStatus === 'VERIFIED' ||
+      profile?.documentVerification?.verificationStatus === 'AUTOMATED_VERIFICATION_PASSED'
+    );
+
+    if (!isVerified) {
+      res.status(403).json({
+        message: 'Contractor verification required. Please complete document verification to access this feature.',
+        verificationRequired: true,
+      });
+      return;
+    }
+
     const {
       projectId,
       amount,

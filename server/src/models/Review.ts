@@ -6,6 +6,7 @@ export interface IReview extends Document {
   contractorId: mongoose.Types.ObjectId;
   rating: number;
   reviewText: string;
+  embedding?: number[];
   tags: string[];
   createdAt: Date;
   updatedAt: Date;
@@ -41,6 +42,10 @@ const ReviewSchema = new Schema<IReview>(
       type: String,
       trim: true,
       default: '',
+    },
+    embedding: {
+      type: [Number],
+      default: [],
     },
     tags: {
       type: [String],

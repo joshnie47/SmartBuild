@@ -10,6 +10,7 @@ export type NotificationType =
   | 'COMPLETED'
   | 'REVIEW_RECEIVED'
   | 'KYC_STATUS'
+  | 'CHAT_MESSAGE'
   | 'GENERAL';
 
 export interface INotification extends Document {
@@ -59,6 +60,7 @@ const NotificationSchema = new Schema<INotification>(
         'COMPLETED',
         'REVIEW_RECEIVED',
         'KYC_STATUS',
+        'CHAT_MESSAGE',
         'GENERAL',
       ],
       default: 'GENERAL',

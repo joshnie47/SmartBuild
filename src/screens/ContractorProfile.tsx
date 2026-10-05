@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { BadgeCheck, Camera, Edit3, Plus, MapPin, Users, Loader2, Save, X, Upload, Sparkles, Trash2, Info, ShieldCheck, CheckCircle2, ShieldAlert, AlertTriangle } from 'lucide-react';
 import { TopNav } from '../components/TopNav';
-import { MicButton, StarRating } from '../components/ui';
+import { StarRating, ToggleSwitch } from '../components/ui';
 import type { ScreenId, PortfolioItem, PortfolioAuthenticity, UploadBatchItem, DocumentVerificationDetails } from '../types';
 import { useLocale } from '../i18n/LocaleContext';
 import { t } from '../i18n';
@@ -140,7 +140,7 @@ export function ContractorProfile({ onNavigate }: { onNavigate: (id: ScreenId) =
   const handleRunDocumentVerification = async () => {
     if (!modalAadhaar.trim() && !modalPan.trim()) {
       setVerificationSuccessMsg(null);
-      setVerificationError('✕ Verification unsuccessful. The submitted details do not match the uploaded documents.');
+      setVerificationError('⚠ Verification requires manual review. The submitted details do not match the uploaded documents.');
       return;
     }
     setVerifyingDocs(true);
@@ -165,17 +165,29 @@ export function ContractorProfile({ onNavigate }: { onNavigate: (id: ScreenId) =
       setIsVerified(res.profile?.kycStatus === 'VERIFIED');
 
       const status = res.verification?.verificationStatus;
-      if (status === 'AUTOMATED_VERIFICATION_PASSED') {
-        setVerificationSuccessMsg('✓ Verification successful. Your contractor profile has been verified.');
+      const detailsMatch = res.verification?.detailsMatch ?? res.verification?.details_match;
+
+      if (status === 'VERIFIED' || status === 'AUTOMATED_VERIFICATION_PASSED') {
+        if (res.verification?.adminReviewed) {
+          setVerificationSuccessMsg('✓ Verification successful. Your documents have been verified.');
+        } else {
+          setVerificationSuccessMsg('✓ Verification successful. Your submitted details match the uploaded documents.');
+        }
         setVerificationError('');
+      } else if (status === 'MANUAL_REVIEW' || status === 'VERIFICATION_REQUIRED' || detailsMatch === false) {
+        setVerificationSuccessMsg(null);
+        setVerificationError('⚠ Verification requires manual review. The submitted details do not match the uploaded documents.');
+      } else if (status === 'REJECTED') {
+        setVerificationSuccessMsg(null);
+        setVerificationError('✕ Verification rejected. The submitted details do not match the uploaded documents.');
       } else {
         setVerificationSuccessMsg(null);
-        setVerificationError('✕ Verification unsuccessful. The submitted details do not match the uploaded documents.');
+        setVerificationError(res.verification?.verificationReason || '⚠ Verification requires manual review. The submitted details do not match the uploaded documents.');
       }
     } catch (err: unknown) {
       console.error('Verification error:', err);
       setVerificationSuccessMsg(null);
-      setVerificationError('✕ Verification unsuccessful. The submitted details do not match the uploaded documents.');
+      setVerificationError('⚠ Verification requires manual review. The submitted details do not match the uploaded documents.');
     } finally {
       setVerifyingDocs(false);
     }
@@ -271,6 +283,28 @@ export function ContractorProfile({ onNavigate }: { onNavigate: (id: ScreenId) =
     };
     reader.readAsDataURL(file);
     e.target.value = '';
+  };
+
+  const handleRemoveAvatar = async () => {
+    setProfileImage('');
+    try {
+      await apiSaveContractorProfile({
+        businessName,
+        profileImage: '',
+        primaryTrade,
+        specializations,
+        experienceYears,
+        licenseNo,
+        city,
+        serviceAreas,
+        about,
+        teamSize,
+        isAvailable: available,
+        portfolioItems,
+      });
+    } catch {
+      // ignore
+    }
   };
 
   const openEditModal = () => {
@@ -598,10 +632,15 @@ export function ContractorProfile({ onNavigate }: { onNavigate: (id: ScreenId) =
           <div className="relative group shrink-0">
             <input ref={avatarFileInputRef} type="file" accept="image/*" onChange={handleAvatarFileUpload} className="hidden" />
             {profileImage ? (
-              <img src={profileImage} alt={fullName} onClick={() => avatarFileInputRef.current?.click()} className="h-20 w-20 rounded-full object-cover border-2 border-white shadow-md cursor-pointer group-hover:opacity-90 transition-opacity" />
+              <div className="relative">
+                <img src={profileImage} alt={fullName} onClick={() => avatarFileInputRef.current?.click()} className="h-20 w-20 rounded-full object-cover border-2 border-white shadow-md cursor-pointer group-hover:opacity-90 transition-opacity" />
+                <button type="button" onClick={handleRemoveAvatar} title="Remove profile picture" className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-white shadow-md hover:bg-red-700">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
             ) : (
-              <div onClick={() => avatarFileInputRef.current?.click()} className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-full bg-navy-600 text-xl font-bold text-white shadow-md hover:bg-navy-700 transition-colors">
-                {fullName.split(' ').map((w) => w[0]).slice(0, 2).join('')}
+              <div onClick={() => avatarFileInputRef.current?.click()} className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-full bg-navy-600 text-2xl font-bold text-white shadow-md hover:bg-navy-700 transition-colors">
+                {fullName && fullName.trim() ? fullName.trim()[0].toUpperCase() : 'C'}
               </div>
             )}
             <button type="button" onClick={() => avatarFileInputRef.current?.click()} title="Change photo" className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-amber-400 text-navy-900 shadow-md hover:bg-amber-300">
@@ -634,14 +673,18 @@ export function ContractorProfile({ onNavigate }: { onNavigate: (id: ScreenId) =
           </button>
         </div>
 
-        <div className="mt-4 flex items-center justify-between rounded-xl bg-gray-100 p-4">
+        <div className="mt-4 flex items-center justify-between rounded-xl bg-gray-100/80 p-4 border border-gray-200/60">
           <div>
-            <p className="text-sm font-semibold text-navy-700">Availability Status</p>
-            <p className="text-xs text-gray-500">{available ? 'Accepting new projects' : 'Currently busy'}</p>
+            <p className="text-sm font-bold text-navy-800">Availability Status</p>
+            <p className="text-xs text-gray-500">{available ? 'Accepting new projects' : 'Currently busy / Unavailable'}</p>
           </div>
-          <button onClick={handleToggleAvailability} className={`relative h-7 w-12 rounded-full transition-colors ${available ? 'bg-emerald-500' : 'bg-gray-300'}`}>
-            <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-soft transition-transform ${available ? 'translate-x-5' : 'translate-x-0.5'}`} />
-          </button>
+          <ToggleSwitch
+            checked={available}
+            onChange={handleToggleAvailability}
+            onLabel="ON"
+            offLabel="OFF"
+            ariaLabel="Availability Status"
+          />
         </div>
 
         <div className="mt-5">
@@ -663,20 +706,34 @@ export function ContractorProfile({ onNavigate }: { onNavigate: (id: ScreenId) =
             </div>
             <span
               className={`rounded-full px-3 py-1 text-xs font-bold border ${
-                docVerification?.verificationStatus === 'AUTOMATED_VERIFICATION_PASSED'
+                docVerification?.verificationStatus === 'VERIFIED' || docVerification?.verificationStatus === 'AUTOMATED_VERIFICATION_PASSED' || isVerified
                   ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                  : docVerification?.verificationStatus === 'VERIFICATION_REQUIRED'
+                  : docVerification?.verificationStatus === 'MANUAL_REVIEW' || docVerification?.verificationStatus === 'VERIFICATION_REQUIRED'
                   ? 'bg-amber-100 text-amber-800 border-amber-300'
                   : 'bg-red-100 text-red-800 border-red-300'
               }`}
             >
-              {docVerification?.verificationStatus === 'AUTOMATED_VERIFICATION_PASSED'
-                ? '✓ Verified'
-                : docVerification?.verificationStatus === 'VERIFICATION_REQUIRED'
-                ? '⚠️ Verification Required'
-                : '✕ Verification Failed'}
+              {docVerification?.verificationStatus === 'VERIFIED' || docVerification?.verificationStatus === 'AUTOMATED_VERIFICATION_PASSED' || isVerified
+                ? `✓ Verified (${docVerification?.verificationMethod || 'AUTOMATED'})`
+                : docVerification?.verificationStatus === 'MANUAL_REVIEW' || docVerification?.verificationStatus === 'VERIFICATION_REQUIRED'
+                ? `⚠️ Manual Review Required`
+                : '✕ Verification Rejected'}
             </span>
           </div>
+
+          {docVerification?.verificationReason && (
+            <div
+              className={`rounded p-2.5 text-xs font-medium border ${
+                docVerification?.verificationStatus === 'VERIFIED' || docVerification?.verificationStatus === 'AUTOMATED_VERIFICATION_PASSED' || isVerified
+                  ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
+                  : docVerification?.verificationStatus === 'MANUAL_REVIEW' || docVerification?.verificationStatus === 'VERIFICATION_REQUIRED'
+                  ? 'bg-amber-50 text-amber-900 border-amber-200'
+                  : 'bg-red-50 text-red-900 border-red-200'
+              }`}
+            >
+              <span>{docVerification.verificationReason}</span>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div className="rounded bg-gray-50 p-2.5 border border-gray-100">
@@ -711,7 +768,7 @@ export function ContractorProfile({ onNavigate }: { onNavigate: (id: ScreenId) =
           {/* Verification Action Button */}
           <div className="pt-2 border-t flex flex-wrap items-center justify-between gap-2">
             <p className="text-[11px] text-gray-500">
-              {docVerification?.verificationStatus === 'AUTOMATED_VERIFICATION_PASSED'
+              {isVerified
                 ? 'Your contractor profile is verified. Click to update verification details.'
                 : 'Provide required Aadhaar and PAN details & documents for verification.'}
             </p>
@@ -721,7 +778,7 @@ export function ContractorProfile({ onNavigate }: { onNavigate: (id: ScreenId) =
               className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors"
             >
               <ShieldCheck className="h-4 w-4 text-indigo-200" />
-              {docVerification?.verificationStatus === 'AUTOMATED_VERIFICATION_PASSED'
+              {isVerified
                 ? 'Update Verification Details'
                 : aadhaarNum || companyPanNum
                 ? 'Submit for Verification'
@@ -822,26 +879,152 @@ export function ContractorProfile({ onNavigate }: { onNavigate: (id: ScreenId) =
       </div>
 
       {editModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy-900/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy-900/40 backdrop-blur-sm animate-fadeIn">
           <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold border-b pb-3">Edit Profile</h3>
-            <div className="mt-4 space-y-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h3 className="text-lg font-bold text-navy-800">Edit Profile Details</h3>
+              <button type="button" onClick={() => setEditModalOpen(false)} className="rounded-lg p-1 text-gray-400 hover:bg-gray-100">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="mt-4 space-y-4 text-xs">
               <div>
-                <label className="text-xs font-semibold text-navy-700">Specializations</label>
-                <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-1 border rounded-lg">
+                <label className="block text-xs font-semibold text-navy-700 mb-1">Business / Company Name</label>
+                <input
+                  type="text"
+                  placeholder="Enter business name"
+                  value={draftBusinessName}
+                  onChange={(e) => setDraftBusinessName(e.target.value)}
+                  className="w-full border border-gray-200 p-2.5 rounded-lg text-xs font-medium text-navy-800 outline-none focus:border-navy-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-navy-700 mb-1">Primary Trade</label>
+                <input
+                  type="text"
+                  placeholder="Primary Trade (e.g. Civil Construction)"
+                  value={draftPrimaryTrade}
+                  onChange={(e) => setDraftPrimaryTrade(e.target.value)}
+                  className="w-full border border-gray-200 p-2.5 rounded-lg text-xs font-medium text-navy-800 outline-none focus:border-navy-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-navy-700 mb-1">Predefined Specializations</label>
+                <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-2 border border-gray-200 rounded-lg bg-gray-50/50">
                   {ALL_SPECS.map((s) => (
-                    <button key={s} type="button" onClick={() => handleToggleDraftSpec(s)} className={`rounded-full px-2.5 py-1 text-xs font-medium ${draftSpecializations.includes(s) ? 'bg-navy-600 text-white' : 'bg-gray-100 text-gray-700'}`}>{s}</button>
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => handleToggleDraftSpec(s)}
+                      className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                        draftSpecializations.includes(s) ? 'bg-navy-600 text-white' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      {s}
+                    </button>
                   ))}
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <input type="text" value={draftCity} onChange={(e) => setDraftCity(e.target.value)} className="border p-2 rounded text-sm" />
-                <input type="number" min={1} value={draftTeamSize} onChange={(e) => setDraftTeamSize(Number(e.target.value))} className="border p-2 rounded text-sm" />
+
+              <div>
+                <label className="block text-xs font-semibold text-navy-700 mb-1">Other / Custom Specialization</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Enter custom specialization (e.g. Waterproofing)"
+                    value={customSpecInput}
+                    onChange={(e) => setCustomSpecInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddCustomSpec();
+                      }
+                    }}
+                    className="flex-1 border border-gray-200 p-2 rounded-lg text-xs text-navy-800 outline-none focus:border-navy-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddCustomSpec}
+                    className="rounded-lg bg-navy-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-navy-700"
+                  >
+                    Add
+                  </button>
+                </div>
+                {draftSpecializations.filter((s) => !ALL_SPECS.includes(s)).length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    <span className="text-[10px] text-gray-400 font-semibold block w-full">Custom Specializations Added:</span>
+                    {draftSpecializations.filter((s) => !ALL_SPECS.includes(s)).map((cs) => (
+                      <span key={cs} className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-900 border border-amber-300">
+                        {cs}
+                        <button type="button" onClick={() => handleRemoveCustomSpec(cs)} className="hover:text-red-700"><X className="h-3 w-3" /></button>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
-              <input type="text" value={draftLicense} onChange={(e) => setDraftLicense(e.target.value)} className="w-full border p-2 rounded text-sm" />
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-navy-700 mb-1">Experience (Years)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={draftExperience}
+                    onChange={(e) => setDraftExperience(Number(e.target.value))}
+                    className="w-full border border-gray-200 p-2 rounded-lg text-xs font-medium text-navy-800 outline-none focus:border-navy-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-navy-700 mb-1">City / Primary Location</label>
+                  <input
+                    type="text"
+                    placeholder="City name"
+                    value={draftCity}
+                    onChange={(e) => setDraftCity(e.target.value)}
+                    className="w-full border border-gray-200 p-2 rounded-lg text-xs font-medium text-navy-800 outline-none focus:border-navy-400"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-navy-700 mb-1">Team Size</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={draftTeamSize}
+                    onChange={(e) => setDraftTeamSize(Number(e.target.value))}
+                    className="w-full border border-gray-200 p-2 rounded-lg text-xs font-medium text-navy-800 outline-none focus:border-navy-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-navy-700 mb-1">License / Reg Number</label>
+                  <input
+                    type="text"
+                    placeholder="License registration no."
+                    value={draftLicense}
+                    onChange={(e) => setDraftLicense(e.target.value)}
+                    className="w-full border border-gray-200 p-2 rounded-lg text-xs font-medium text-navy-800 outline-none focus:border-navy-400"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-navy-700 mb-1">About / Business Bio</label>
+                <textarea
+                  rows={3}
+                  placeholder="Enter detailed description of your contractor business and experience..."
+                  value={draftAbout}
+                  onChange={(e) => setDraftAbout(e.target.value)}
+                  className="w-full border border-gray-200 p-2.5 rounded-lg text-xs font-medium text-navy-800 outline-none focus:border-navy-400"
+                />
+              </div>
+
               <div className="flex justify-end gap-2 pt-3 border-t">
-                <button type="button" onClick={() => setEditModalOpen(false)} className="px-4 py-2 text-sm text-gray-600">Cancel</button>
-                <button type="button" onClick={handleSaveProfile} className="bg-amber-400 px-5 py-2 text-sm font-semibold rounded-lg text-navy-700">Save</button>
+                <button type="button" onClick={() => setEditModalOpen(false)} className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
+                <button type="button" onClick={handleSaveProfile} className="bg-amber-400 px-5 py-2 text-xs font-bold rounded-lg text-navy-950 hover:bg-amber-300 shadow-sm">Save Profile</button>
               </div>
             </div>
           </div>
@@ -1036,8 +1219,6 @@ export function ContractorProfile({ onNavigate }: { onNavigate: (id: ScreenId) =
           </div>
         </div>
       )}
-
-      <MicButton />
     </div>
   );
 }

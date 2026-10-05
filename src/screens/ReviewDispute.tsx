@@ -1,25 +1,27 @@
 import { useState, useEffect } from 'react';
-import { AlertTriangle, ChevronDown, ChevronUp, ArrowLeft, Loader2 } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronUp, ArrowLeft, Loader2, ShieldCheck, FileText } from 'lucide-react';
 import { TopNav } from '../components/TopNav';
-import { MicInline, MicButton } from '../components/ui';
 import type { ScreenId } from '../types';
 import { useLocale } from '../i18n/LocaleContext';
 import { t } from '../i18n';
-import { apiGetProjects, apiSubmitReview, type ApiProject } from '../lib/api';
+import { apiGetProjects, apiSubmitReview, apiCreateDispute, apiGetProjectDisputes, type ApiProject, type ApiDispute } from '../lib/api';
 
 const TAGS = ['On time', 'Professional', 'Good pricing', 'Quality work', 'Clean site', 'Good communication', 'Friendly'];
 
 export function ReviewDispute({ onNavigate, projectId }: { onNavigate: (id: ScreenId) => void; projectId?: string }) {
   const { locale } = useLocale();
   const [project, setProject] = useState<ApiProject | null>(null);
+  const [existingDisputes, setExistingDisputes] = useState<ApiDispute[]>([]);
   const [rating, setRating] = useState(5);
   const [hover, setHover] = useState(0);
   const [reviewText, setReviewText] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>(['On time', 'Quality work']);
   const [disputeOpen, setDisputeOpen] = useState(false);
   const [disputeCategory, setDisputeCategory] = useState('Quality of work');
+  const [disputePriority, setDisputePriority] = useState('High');
   const [disputeDesc, setDisputeDesc] = useState('');
   const [disputeSubmitted, setDisputeSubmitted] = useState(false);
+  const [disputeSubmitting, setDisputeSubmitting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
@@ -28,14 +30,19 @@ export function ReviewDispute({ onNavigate, projectId }: { onNavigate: (id: Scre
       try {
         const projects = await apiGetProjects();
         if (projects.length > 0) {
-          setProject(projects[0]);
+          const target = (projectId ? projects.find((p: ApiProject) => p._id === projectId) : null) || projects[0];
+          setProject(target);
+          if (target?._id) {
+            const res = await apiGetProjectDisputes(target._id).catch(() => ({ disputes: [] }));
+            setExistingDisputes(res?.disputes || []);
+          }
         }
       } catch {
         // Fallback
       }
     }
     loadProject();
-  }, []);
+  }, [projectId]);
 
   const toggleTag = (tag: string) => {
     setSelectedTags((prev) =>
@@ -68,9 +75,26 @@ export function ReviewDispute({ onNavigate, projectId }: { onNavigate: (id: Scre
     }
   };
 
-  const handleDisputeSubmit = () => {
-    setDisputeSubmitted(true);
-    setDisputeOpen(false);
+  const handleDisputeSubmit = async () => {
+    if (!project || !disputeDesc.trim()) return;
+    try {
+      setDisputeSubmitting(true);
+      const res = await apiCreateDispute({
+        projectId: project._id,
+        issueCategory: disputeCategory,
+        description: disputeDesc.trim(),
+        priority: disputePriority,
+      });
+      setDisputeSubmitted(true);
+      setDisputeOpen(false);
+      if (res?.dispute) {
+        setExistingDisputes((prev) => [res.dispute, ...prev]);
+      }
+    } catch (err: any) {
+      alert(err?.message || 'Error submitting dispute.');
+    } finally {
+      setDisputeSubmitting(false);
+    }
   };
 
   return (
@@ -151,16 +175,13 @@ export function ReviewDispute({ onNavigate, projectId }: { onNavigate: (id: Scre
               <label className="mb-1.5 block text-sm font-medium text-navy-600">
                 {t(locale, 'yourReview') || 'Your Review'}
               </label>
-              <div className="flex items-start rounded-lg border border-gray-200 px-3 py-2 focus-within:border-navy-400">
-                <textarea
-                  rows={3}
-                  value={reviewText}
-                  onChange={(e) => setReviewText(e.target.value)}
-                  placeholder="Share details about the contractor's work quality, timeliness, and professionalism..."
-                  className="w-full resize-none bg-transparent text-sm text-navy-700 placeholder-gray-300 outline-none"
-                />
-                <MicInline />
-              </div>
+              <textarea
+                rows={3}
+                value={reviewText}
+                onChange={(e) => setReviewText(e.target.value)}
+                placeholder="Share details about the contractor's work quality, timeliness, and professionalism..."
+                className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm text-navy-700 placeholder-gray-300 outline-none focus:border-navy-400"
+              />
             </div>
 
             {/* Tag chips */}
@@ -200,6 +221,55 @@ export function ReviewDispute({ onNavigate, projectId }: { onNavigate: (id: Scre
               )}
             </button>
 
+            {/* Active Project Disputes & History */}
+            {existingDisputes.length > 0 && (
+              <div className="mt-6 border-t border-gray-100 pt-4 space-y-3">
+                <h3 className="text-sm font-bold text-navy-800 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                  Project Disputes & Admin Arbitration Status
+                </h3>
+                {existingDisputes.map((d) => (
+                  <div key={d._id} className="rounded-xl border border-gray-200 bg-gray-50/80 p-4 text-xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono font-bold text-navy-800">
+                        Dispute #{d._id.slice(-6).toUpperCase()}
+                      </span>
+                      <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+                        d.status === 'OPEN'
+                          ? 'bg-red-50 text-red-600 border border-red-200'
+                          : d.status === 'UNDER_REVIEW'
+                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                          : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      }`}>
+                        {d.status}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] font-semibold text-gray-400 uppercase block">Category & Priority</span>
+                      <p className="font-bold text-navy-800">{d.issueCategory || (d as any).reason} · Priority: {d.priority || 'Medium'}</p>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] font-semibold text-gray-400 uppercase block">Description</span>
+                      <p className="text-gray-700 bg-white p-2.5 rounded border border-gray-200 whitespace-pre-wrap">{d.description}</p>
+                    </div>
+
+                    {(d.status === 'RESOLVED' || d.status === 'REJECTED') && (
+                      <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 space-y-1">
+                        <p className="font-bold text-emerald-900 flex items-center gap-1.5">
+                          <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                          Admin Resolution Decision
+                        </p>
+                        <p className="text-emerald-800"><strong>Outcome:</strong> {d.resolutionOutcome || d.status}</p>
+                        <p className="text-emerald-800"><strong>Admin Note:</strong> {d.adminResolutionNote || d.resolutionNotes || 'Arbitration decision recorded by Admin.'}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Dispute Banner / Form */}
             <div className="mt-6 border-t border-gray-100 pt-4">
               {disputeSubmitted ? (
@@ -227,6 +297,8 @@ export function ReviewDispute({ onNavigate, projectId }: { onNavigate: (id: Scre
                           onChange={(e) => setDisputeCategory(e.target.value)}
                           className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 outline-none focus:border-navy-400"
                         >
+                          <option>Milestone / Work Completion</option>
+                          <option>Payment / Milestone</option>
                           <option>Quality of work</option>
                           <option>Delay in completion</option>
                           <option>Pricing dispute</option>
@@ -236,24 +308,35 @@ export function ReviewDispute({ onNavigate, projectId }: { onNavigate: (id: Scre
                         </select>
                       </div>
                       <div>
+                        <label className="mb-1 block text-xs font-medium text-navy-600">Priority Level</label>
+                        <select
+                          value={disputePriority}
+                          onChange={(e) => setDisputePriority(e.target.value)}
+                          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 outline-none focus:border-navy-400"
+                        >
+                          <option value="Low">Low</option>
+                          <option value="Medium">Medium</option>
+                          <option value="High">High</option>
+                          <option value="Urgent">Urgent</option>
+                        </select>
+                      </div>
+                      <div>
                         <label className="mb-1 block text-xs font-medium text-navy-600">Description</label>
-                        <div className="flex items-start rounded-lg border border-gray-200 bg-white px-3 py-2 focus-within:border-navy-400">
-                          <textarea
-                            rows={2}
-                            value={disputeDesc}
-                            onChange={(e) => setDisputeDesc(e.target.value)}
-                            placeholder="Describe the issue and how you would like it resolved..."
-                            className="w-full resize-none bg-transparent text-sm text-navy-700 placeholder-gray-300 outline-none"
-                          />
-                          <MicInline />
-                        </div>
+                        <textarea
+                          rows={3}
+                          value={disputeDesc}
+                          onChange={(e) => setDisputeDesc(e.target.value)}
+                          placeholder="Describe the issue and how you would like it resolved..."
+                          className="w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 placeholder-gray-300 outline-none focus:border-navy-400"
+                        />
                       </div>
                       <button
                         type="button"
                         onClick={handleDisputeSubmit}
-                        className="w-full rounded-lg bg-red-600 py-2 text-sm font-semibold text-white hover:bg-red-700"
+                        disabled={disputeSubmitting}
+                        className="w-full rounded-lg bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2"
                       >
-                        Submit Dispute for Admin Review
+                        {disputeSubmitting ? <Loader2 className="h-4 w-4 animate-spin text-white" /> : 'Submit Dispute for Admin Review'}
                       </button>
                     </div>
                   )}
@@ -263,7 +346,6 @@ export function ReviewDispute({ onNavigate, projectId }: { onNavigate: (id: Scre
           </>
         )}
       </div>
-      <MicButton />
     </div>
   );
 }

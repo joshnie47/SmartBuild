@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Check, ChevronDown, Camera, Flag, ArrowLeft, Loader2, AlertTriangle, ShieldCheck, RefreshCw, X, Sparkles, Maximize2, FileText } from 'lucide-react';
 import { TopNav } from '../components/TopNav';
-import { MicInline, MicButton } from '../components/ui';
 import type { ScreenId, Milestone, ProjectEvidenceItem } from '../types';
 import { useLocale } from '../i18n/LocaleContext';
 import { t } from '../i18n';
@@ -553,16 +552,13 @@ export function ProjectUpdate({ onNavigate, projectId }: { onNavigate: (id: Scre
                 <label className="mb-1.5 block text-sm font-medium text-navy-600">
                   Progress Note
                 </label>
-                <div className="flex items-start rounded-lg border border-gray-200 px-3 py-2 focus-within:border-navy-400">
                   <textarea
                     rows={2}
                     value={stageNote}
                     onChange={(e) => setStageNote(e.target.value)}
                     placeholder="Add details about the completed work, materials used, etc..."
-                    className="w-full resize-none bg-transparent text-sm text-navy-700 placeholder-gray-300 outline-none"
+                    className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm text-navy-700 placeholder-gray-300 outline-none focus:border-navy-400"
                   />
-                  <MicInline />
-                </div>
               </div>
             </div>
 
@@ -603,16 +599,13 @@ export function ProjectUpdate({ onNavigate, projectId }: { onNavigate: (id: Scre
                   </div>
                   <div>
                     <label className="text-xs font-medium text-navy-700 mb-1 block">Additional Note</label>
-                    <div className="flex items-start rounded-lg border border-gray-200 bg-white px-3 py-2 focus-within:border-navy-400">
                       <textarea
                         rows={2}
                         value={flagNote}
                         onChange={(e) => setFlagNote(e.target.value)}
                         placeholder="Explain the cause and expected revised ETA..."
-                        className="w-full resize-none bg-transparent text-sm text-navy-700 placeholder-gray-300 outline-none"
+                        className="w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-navy-700 placeholder-gray-300 outline-none focus:border-navy-400"
                       />
-                      <MicInline />
-                    </div>
                   </div>
                   <button
                     onClick={handleFlagDelay}
@@ -788,8 +781,6 @@ export function ProjectUpdate({ onNavigate, projectId }: { onNavigate: (id: Scre
           </div>
         </div>
       )}
-
-      <MicButton />
     </div>
   );
 }

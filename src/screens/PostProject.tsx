@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { MapPin, Upload, FileText, Sparkles, ArrowLeft, Loader2, X, ImageIcon, CheckCircle2, Bell, Send } from 'lucide-react';
 import { TopNav } from '../components/TopNav';
-import { MicInline, MicButton } from '../components/ui';
 import type { ScreenId } from '../types';
 import { useLocale } from '../i18n/LocaleContext';
 import { t } from '../i18n';
@@ -292,23 +291,16 @@ export function PostProject({
             />
           </div>
 
-          {/* Description with Voice Input */}
+          {/* Description */}
           <div>
             <label className="mb-1.5 block text-sm font-medium text-navy-600">{t(locale, 'descriptionLabel')}</label>
-            <div className="flex items-start rounded-lg border border-gray-200 px-3 py-2 focus-within:border-navy-400">
-              <textarea
-                rows={3}
-                placeholder={t(locale, 'descriptionPlaceholder')}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full resize-none bg-transparent text-sm text-navy-700 placeholder-gray-300 outline-none"
-              />
-              <MicInline
-                onTranscript={(text) =>
-                  setDescription((prev) => (prev ? `${prev} ${text}` : text))
-                }
-              />
-            </div>
+            <textarea
+              rows={3}
+              placeholder={t(locale, 'descriptionPlaceholder')}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm text-navy-700 placeholder-gray-300 outline-none focus:border-navy-400"
+            />
           </div>
 
           {/* AI-suggested category */}
@@ -555,8 +547,8 @@ export function PostProject({
               </div>
             </div>
             <div className="text-center">
-              <p className="text-base font-semibold text-navy-700">Posting & Dispatching Project...</p>
-              <p className="mt-1 text-sm text-gray-500">Alerting verified available {category} contractors</p>
+              <p className="text-base font-semibold text-navy-700">{t(locale, 'postingDispatching')}</p>
+              <p className="mt-1 text-sm text-gray-500">{t(locale, 'alertingContractors', { category: category })}</p>
             </div>
             <div className="flex gap-1.5">
               {[0, 1, 2].map((i) => (
@@ -578,22 +570,22 @@ export function PostProject({
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 mb-4 shadow-sm">
               <CheckCircle2 className="h-8 w-8" />
             </div>
-            <h2 className="text-xl font-bold text-navy-800">Project Posted & Broadcasted!</h2>
+            <h2 className="text-xl font-bold text-navy-800">{t(locale, 'projectPostedBroadcasted')}</h2>
             <p className="mt-2 text-sm text-gray-600">
               Your project <span className="font-semibold text-navy-700">"{createdProject?.title || title}"</span> has been posted and broadcasted to verified available <span className="font-semibold text-navy-700">{createdProject?.category || category}</span> contractors.
             </p>
             <div className="my-5 rounded-xl bg-gray-50 border border-gray-100 p-4 text-left text-xs space-y-2.5 text-gray-600 shadow-sm">
               <div className="flex items-center gap-2.5">
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 font-bold">✓</span>
-                <span>Notifications dispatched to matching domain contractors</span>
+                <span>{t(locale, 'notificationsDispatched')}</span>
               </div>
               <div className="flex items-center gap-2.5">
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700 font-bold">⏳</span>
-                <span>Contractors will review requirements and submit quotations</span>
+                <span>{t(locale, 'contractorsReviewing')}</span>
               </div>
               <div className="flex items-center gap-2.5">
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700 font-bold">🔔</span>
-                <span>You will receive live notifications as quotes arrive</span>
+                <span>{t(locale, 'liveNotificationsInfo')}</span>
               </div>
             </div>
             <div className="space-y-2.5">
@@ -601,24 +593,18 @@ export function PostProject({
                 onClick={() => onNavigate('client-home')}
                 className="w-full rounded-xl bg-navy-600 py-3 text-sm font-semibold text-white hover:bg-navy-700 shadow-md transition-transform active:scale-95"
               >
-                Go to My Dashboard
+                {t(locale, 'goToMyDashboard')}
               </button>
               <button
                 onClick={() => onNavigate('contractor-results', createdProject?._id)}
                 className="w-full rounded-xl border border-navy-200 py-2.5 text-xs font-semibold text-navy-600 hover:bg-navy-50"
               >
-                View Project Status (0 Bids)
+                {t(locale, 'viewProjectStatus')}
               </button>
             </div>
           </div>
         </div>
       )}
-
-      <MicButton
-        onTranscript={(text) =>
-          setDescription((prev) => (prev ? `${prev} ${text}` : text))
-        }
-      />
     </div>
   );
 }

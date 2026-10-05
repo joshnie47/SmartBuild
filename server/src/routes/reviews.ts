@@ -1,11 +1,13 @@
 import { Router, Response } from 'express';
 import mongoose from 'mongoose';
 import { Review } from '../models/Review';
+import { Dispute } from '../models/Dispute';
 import { Project } from '../models/Project';
 import { User } from '../models/User';
 import { ContractorProfile } from '../models/ContractorProfile';
 import { Notification } from '../models/Notification';
 import { protect, AuthRequest } from '../middleware/auth';
+import { generateEmbedding } from '../services/semanticEmbeddingService';
 
 const router = Router();
 
@@ -64,12 +66,16 @@ router.post('/', protect, async (req: AuthRequest, res: Response) => {
       return;
     }
 
+    const cleanText = reviewText?.trim() || '';
+    const embedding = cleanText ? generateEmbedding(cleanText) : [];
+
     const review = await Review.create({
       projectId,
       clientId: req.userId,
       contractorId,
       rating: Number(rating),
-      reviewText: reviewText?.trim() || '',
+      reviewText: cleanText,
+      embedding,
       tags: Array.isArray(tags) ? tags : [],
     });
 
@@ -128,8 +134,97 @@ router.get('/contractor/:contractorId', async (req, res: Response) => {
       .sort({ createdAt: -1 });
 
     res.json({ reviews });
-  } catch {
-    res.status(500).json({ message: 'Server error fetching reviews.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching contractor reviews.' });
+  }
+});
+
+// POST /api/reviews/disputes — client or contractor raises a dispute for a project
+router.post('/disputes', protect, async (req: AuthRequest, res: Response) => {
+  try {
+    const { projectId, issueCategory, description, evidenceUrls, priority } = req.body;
+
+    if (!projectId || !issueCategory || !description) {
+      res.status(400).json({ message: 'Project ID, issue category, and description are required.' });
+      return;
+    }
+
+    const project = await Project.findById(projectId);
+    if (!project) {
+      res.status(404).json({ message: 'Project not found.' });
+      return;
+    }
+
+    const contractorIdStr = typeof project.selectedContractorId === 'object' && project.selectedContractorId
+      ? (project.selectedContractorId as any)._id?.toString()
+      : project.selectedContractorId?.toString();
+
+    const isClient = project.clientId.toString() === req.userId;
+    const isContractor = contractorIdStr === req.userId;
+
+    if (!isClient && !isContractor) {
+      res.status(403).json({ message: 'Only the project client or assigned contractor can raise a dispute for this project.' });
+      return;
+    }
+
+    if (!contractorIdStr && isClient) {
+      res.status(400).json({ message: 'No contractor is assigned to this project to dispute.' });
+      return;
+    }
+
+    const assignedContractorId = contractorIdStr || req.userId;
+    const recipientId = isClient ? assignedContractorId : project.clientId;
+
+    const disputePriority = ['Low', 'Medium', 'High', 'Urgent'].includes(priority) ? priority : 'Medium';
+
+    const dispute = await Dispute.create({
+      projectId: project._id,
+      clientId: project.clientId,
+      contractorId: assignedContractorId,
+      raisedBy: req.userId,
+      issueCategory: issueCategory.trim(),
+      description: description.trim(),
+      evidenceUrls: Array.isArray(evidenceUrls) ? evidenceUrls : [],
+      status: 'OPEN',
+      priority: disputePriority,
+    });
+
+    // Notify opposing party
+    await Notification.create({
+      recipientId,
+      senderId: req.userId,
+      title: 'Dispute Raised ⚠️',
+      message: `${isClient ? 'Client' : 'Contractor'} raised a dispute (${issueCategory}) for project "${project.title}". Admin review pending.`,
+      type: 'DISPUTE_RAISED',
+      projectId: project._id,
+    });
+
+    res.status(201).json({
+      message: 'Dispute submitted successfully for Admin review.',
+      dispute,
+    });
+  } catch (error) {
+    console.error('Error creating dispute:', error);
+    res.status(500).json({ message: 'Server error raising dispute.' });
+  }
+});
+
+// GET /api/reviews/disputes/project/:projectId — get disputes filed for a given project
+router.get('/disputes/project/:projectId', protect, async (req: AuthRequest, res: Response) => {
+  try {
+    const { projectId } = req.params;
+    const disputes = await Dispute.find({ projectId })
+      .populate('projectId', 'title category')
+      .populate('clientId', 'fullName email')
+      .populate('contractorId', 'fullName email')
+      .populate('raisedBy', 'fullName email role')
+      .populate('resolvedBy', 'fullName email')
+      .sort({ createdAt: -1 });
+
+    res.json({ disputes });
+  } catch (error) {
+    console.error('Error fetching project disputes:', error);
+    res.status(500).json({ message: 'Server error fetching project disputes.' });
   }
 });
 

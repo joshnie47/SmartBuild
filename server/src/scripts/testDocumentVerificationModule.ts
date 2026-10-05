@@ -28,8 +28,9 @@ async function runTests() {
     businessName: 'Kumar Civil Works',
   });
   console.log('Verification Status:', perfectResult.verification.verificationStatus);
+  console.log('Details Match:', perfectResult.verification.detailsMatch);
   console.log('Flags:', perfectResult.verification.mismatchFlags);
-  console.log('Passed Perfect Match:', perfectResult.verification.verificationStatus === 'AUTOMATED_VERIFICATION_PASSED' ? 'PASSED ✅' : 'FAILED ❌');
+  console.log('Passed Perfect Match:', (perfectResult.verification.verificationStatus === 'VERIFIED' && perfectResult.verification.detailsMatch === true) ? 'PASSED ✅' : 'FAILED ❌');
 
   // Test 4: Mismatch Case - Invalid Format
   console.log('\n--- TEST 4: Invalid Format Case ---');
@@ -40,11 +41,12 @@ async function runTests() {
     businessName: 'Kumar Civil Works',
   });
   console.log('Verification Status:', invalidFormatResult.verification.verificationStatus);
+  console.log('Details Match:', invalidFormatResult.verification.detailsMatch);
   console.log('Flags:', invalidFormatResult.verification.mismatchFlags);
-  console.log('Passed Invalid Format Test:', invalidFormatResult.verification.verificationStatus === 'VERIFICATION_FAILED' ? 'PASSED ✅' : 'FAILED ❌');
+  console.log('Passed Invalid Format Test:', (invalidFormatResult.verification.verificationStatus === 'MANUAL_REVIEW' && invalidFormatResult.verification.detailsMatch === false) ? 'PASSED ✅' : 'FAILED ❌');
 
-  // Test 5: Discrepancy Case (Verification Required)
-  console.log('\n--- TEST 5: Discrepancy Case (Verification Required) ---');
+  // Test 5: Discrepancy Case (Manual Review Required)
+  console.log('\n--- TEST 5: Discrepancy Case (Manual Review Required) ---');
   const sampleAadhaarBuf = Buffer.from('GOVERNMENT OF INDIA Aadhaar No 9876 5432 1012 Name: Suresh Kumar');
   const discrepancyResult = await processContractorDocumentVerification({
     aadhaarNumberEntered: '987654321012',
@@ -55,8 +57,9 @@ async function runTests() {
     aadhaarDocFilename: 'aadhaar_sample.txt',
   });
   console.log('Verification Status:', discrepancyResult.verification.verificationStatus);
+  console.log('Details Match:', discrepancyResult.verification.detailsMatch);
   console.log('Flags:', discrepancyResult.verification.mismatchFlags);
-  console.log('Passed Discrepancy Test:', discrepancyResult.verification.verificationStatus === 'VERIFICATION_REQUIRED' ? 'PASSED ✅' : 'FAILED ❌');
+  console.log('Passed Discrepancy Test:', (discrepancyResult.verification.verificationStatus === 'MANUAL_REVIEW' && discrepancyResult.verification.detailsMatch === false) ? 'PASSED ✅' : 'FAILED ❌');
 
   console.log('\n=== ALL MODULE INTEGRATION TESTS COMPLETED SUCCESSFULLY ✅ ===');
 }

@@ -3,13 +3,21 @@ import mongoose, { Document, Schema } from 'mongoose';
 export type KYCStatus = 'PENDING' | 'VERIFIED' | 'REJECTED';
 export type AiClassification = 'LIKELY_REAL' | 'LIKELY_AI_GENERATED' | 'UNCERTAIN';
 export type PortfolioAuthenticity = 'LIKELY_REAL' | 'LIKELY_AI' | 'UNCERTAIN' | 'AI_GENERATED';
+export type VerificationMethod = 'AUTOMATED' | 'MANUAL' | 'LEGACY';
 export type DocumentVerificationStatus =
+  | 'VERIFIED'
+  | 'MANUAL_REVIEW'
+  | 'REJECTED'
   | 'AUTOMATED_VERIFICATION_PASSED'
   | 'VERIFICATION_REQUIRED'
   | 'VERIFICATION_FAILED';
 
 export interface IDocumentVerification {
   verificationStatus: DocumentVerificationStatus;
+  detailsMatch?: boolean;
+  details_match?: boolean;
+  verificationMethod?: VerificationMethod;
+  verificationReason?: string;
   aadhaarNumberEntered?: string;
   companyPanEntered?: string;
   aadhaarDocUrl?: string;
@@ -205,10 +213,18 @@ const ContractorProfileSchema = new Schema<IContractorProfile>(
     documentVerification: {
       verificationStatus: {
         type: String,
-        enum: ['AUTOMATED_VERIFICATION_PASSED', 'VERIFICATION_REQUIRED', 'VERIFICATION_FAILED'],
-        default: 'VERIFICATION_REQUIRED',
+        enum: ['VERIFIED', 'MANUAL_REVIEW', 'REJECTED', 'AUTOMATED_VERIFICATION_PASSED', 'VERIFICATION_REQUIRED', 'VERIFICATION_FAILED'],
+        default: 'MANUAL_REVIEW',
         index: true,
       },
+      detailsMatch: { type: Boolean, default: false },
+      details_match: { type: Boolean, default: false },
+      verificationMethod: {
+        type: String,
+        enum: ['AUTOMATED', 'MANUAL', 'LEGACY'],
+        default: 'LEGACY',
+      },
+      verificationReason: { type: String, default: '' },
       aadhaarNumberEntered: { type: String, default: '' },
       companyPanEntered: { type: String, default: '' },
       aadhaarDocUrl: { type: String, default: '' },
@@ -303,6 +319,10 @@ const ContractorProfileSchema = new Schema<IContractorProfile>(
     timestamps: true,
   }
 );
+
+ContractorProfileSchema.index({ fullName: 'text', businessName: 'text', primaryTrade: 'text', specializations: 'text', city: 'text' });
+ContractorProfileSchema.index({ isAvailable: 1, kycStatus: 1, city: 1, experienceYears: 1 });
+
 
 export const ContractorProfile = mongoose.model<IContractorProfile>(
   'ContractorProfile',

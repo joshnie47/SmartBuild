@@ -56,6 +56,7 @@ type EventHandler = (event: ServerEvent) => void;
 
 class ChatSocketManager {
   private socket: WebSocket | null = null;
+  private currentToken: string | null = null;
   private handlers: Set<EventHandler> = new Set();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private shouldReconnect = false;
@@ -64,15 +65,20 @@ class ChatSocketManager {
 
   /** Open the WebSocket connection. Safe to call multiple times (idempotent). */
   connect(): void {
-    if (this.socket && this.socket.readyState === WebSocket.OPEN) return;
-    if (this.socket && this.socket.readyState === WebSocket.CONNECTING) return;
-
     const token = getToken();
     if (!token) {
       console.warn('[ChatSocket] No JWT found — skipping connection.');
+      this.disconnect();
       return;
     }
 
+    if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
+      if (this.currentToken === token) return;
+      // Token changed — close old connection to prevent identity mismatch
+      this.disconnect();
+    }
+
+    this.currentToken = token;
     this.shouldReconnect = true;
     const url = `${WS_URL}?token=${encodeURIComponent(token)}`;
     this.socket = new WebSocket(url);
@@ -121,6 +127,7 @@ class ChatSocketManager {
 
   /** Disconnect and stop reconnecting. Call on logout. */
   disconnect(): void {
+    this.currentToken = null;
     this.shouldReconnect = false;
 
     if (this.reconnectTimer) {

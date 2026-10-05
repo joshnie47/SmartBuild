@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { IndianRupee, Briefcase, Star, CheckCircle2, QrCode, MapPin, ArrowRight, Upload, ShieldAlert, BadgeCheck, Loader2 } from 'lucide-react';
+import { IndianRupee, Briefcase, Star, CheckCircle2, QrCode, MapPin, ArrowRight, Upload, ShieldAlert, BadgeCheck, Loader2, Search } from 'lucide-react';
+
 import { TopNav } from '../components/TopNav';
-import { MicButton } from '../components/ui';
 import type { ScreenId } from '../types';
 import { useLocale } from '../i18n/LocaleContext';
 import { t } from '../i18n';
@@ -117,37 +117,50 @@ export function ContractorDashboard({
             </p>
           </div>
 
-          <button
-            onClick={() => onNavigate('contractor-profile')}
-            className="rounded-lg border border-navy-200 px-3.5 py-1.5 text-xs font-semibold text-navy-700 hover:bg-navy-50"
-          >
-            View / Edit Profile
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => onNavigate('contractor-search')}
+              className="flex items-center gap-1.5 rounded-lg bg-amber-400 px-3.5 py-1.5 text-xs font-bold text-navy-700 shadow-soft hover:bg-amber-300 transition-all"
+            >
+              <Search className="h-3.5 w-3.5" /> Search Projects
+            </button>
+            <button
+              onClick={() => onNavigate('contractor-profile')}
+              className="rounded-lg border border-navy-200 px-3.5 py-1.5 text-xs font-semibold text-navy-700 hover:bg-navy-50"
+            >
+              View / Edit Profile
+            </button>
+          </div>
         </div>
 
-        {/* KYC Alert if Pending or Rejected */}
+
+        {/* Verification Reminder Banner if Unverified */}
         {!isVerified && (
-          <div className="mt-4 flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
             <div className="flex items-center gap-3">
-              <ShieldAlert className="h-5 w-5 text-amber-600" />
+              <ShieldAlert className="h-5 w-5 shrink-0 text-amber-600" />
               <div>
                 <p className="text-sm font-semibold text-amber-900">
                   {kycStatus === 'REJECTED'
-                    ? 'KYC Documents Need Attention'
-                    : 'KYC Verification Under Review'}
+                    ? 'Verification Rejected'
+                    : stats?.documentVerification?.verificationMethod === 'LEGACY'
+                    ? 'Verification Required'
+                    : 'Verification Under Review'}
                 </p>
                 <p className="text-xs text-amber-700">
                   {kycStatus === 'REJECTED'
-                    ? 'Your documents were rejected. Please update them in your profile.'
-                    : 'Admin is reviewing your documents. Once verified, you get top priority in AI client recommendations.'}
+                    ? 'Your document verification was rejected. Please upload valid Aadhaar and PAN documents.'
+                    : stats?.documentVerification?.verificationMethod === 'LEGACY'
+                    ? 'Complete your contractor document verification to access verified-contractor features.'
+                    : stats?.documentVerification?.verificationReason || 'Complete your contractor document verification to access verified-contractor features.'}
                 </p>
               </div>
             </div>
             <button
               onClick={() => onNavigate('contractor-profile')}
-              className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-600"
+              className="shrink-0 rounded-lg bg-amber-500 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-amber-600 shadow-xs"
             >
-              Check KYC
+              Complete Verification
             </button>
           </div>
         )}
@@ -422,7 +435,6 @@ export function ContractorDashboard({
           </div>
         </div>
       </div>
-      <MicButton />
     </div>
   );
 }

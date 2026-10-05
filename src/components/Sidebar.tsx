@@ -1,11 +1,10 @@
 import {
   Home, FilePlus, Users, ClipboardList, Star, MessageSquare,
-  LayoutDashboard, FileText, User, Settings, X, Building2,
+  LayoutDashboard, FileText, User, Settings, X, Building2, Search,
 } from 'lucide-react';
 import type { Role, ScreenId } from '../types';
 import { useLocale } from '../i18n/LocaleContext';
 import type { TranslationKey } from '../i18n';
-import { LanguageSwitcher } from './LanguageSwitcher';
 
 interface NavItem {
   id: ScreenId;
@@ -16,7 +15,7 @@ interface NavItem {
 const clientNav: NavItem[] = [
   { id: 'client-home', labelKey: 'navDashboard', icon: Home },
   { id: 'post-project', labelKey: 'navPostProject', icon: FilePlus },
-  { id: 'contractor-results', labelKey: 'navFindContractors', icon: Users },
+  { id: 'client-search', labelKey: 'navFindContractors', icon: Users },
   { id: 'project-tracking', labelKey: 'navProjectTracking', icon: ClipboardList },
   { id: 'review-dispute', labelKey: 'navReviews', icon: Star },
   { id: 'chat', labelKey: 'navMessages', icon: MessageSquare },
@@ -24,11 +23,13 @@ const clientNav: NavItem[] = [
 
 const contractorNav: NavItem[] = [
   { id: 'contractor-dashboard', labelKey: 'navDashboard', icon: LayoutDashboard },
+  { id: 'contractor-search', labelKey: 'navOpportunities', icon: Search },
   { id: 'submit-quote', labelKey: 'navSubmitQuote', icon: FileText },
   { id: 'project-update', labelKey: 'navProjectUpdates', icon: ClipboardList },
   { id: 'contractor-profile', labelKey: 'navMyProfile', icon: User },
   { id: 'chat', labelKey: 'navMessages', icon: MessageSquare },
 ];
+
 
 const adminNav: NavItem[] = [
   { id: 'admin-dashboard', labelKey: 'navDashboard', icon: LayoutDashboard },
@@ -89,8 +90,7 @@ export function Sidebar({
             );
           })}
         </nav>
-        <div className="border-t border-gray-100 p-3 space-y-2">
-          <LanguageSwitcher variant="card" className="w-full" />
+        <div className="border-t border-gray-100 p-3">
           <button
             onClick={() => onNavigate('auth')}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-500 hover:bg-gray-50"

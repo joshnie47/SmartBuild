@@ -613,14 +613,20 @@ router.post(
         companyPanDocUrl,
       });
 
-      const kycStatus =
-        result.verification.verificationStatus === 'AUTOMATED_VERIFICATION_PASSED'
-          ? 'VERIFIED'
-          : 'PENDING';
+      const isDocVerified =
+        result.verification.verificationStatus === 'VERIFIED' ||
+        result.verification.verificationStatus === 'AUTOMATED_VERIFICATION_PASSED';
+
+      const kycStatus = isDocVerified ? 'VERIFIED' : 'PENDING';
+      const isGenericUser = !user.fullName || ['contractor', 'user', 'test user', 'contractor user'].includes(user.fullName.toLowerCase());
+      const syncedName = (isDocVerified && isGenericUser && result.verification.aadhaarExtractedName)
+        ? result.verification.aadhaarExtractedName
+        : (fullName || user.fullName);
 
       profile = await ContractorProfile.findOneAndUpdate(
         { userId: req.userId },
         {
+          fullName: syncedName,
           aadhaarNumber: targetAadhaar,
           companyPanNumber: targetPan,
           aadhaarDocumentUrl: aadhaarDocUrl,
@@ -633,6 +639,7 @@ router.post(
       );
 
       await User.findByIdAndUpdate(req.userId, {
+        fullName: syncedName,
         kycStatus,
         isVerified: kycStatus === 'VERIFIED',
       });
@@ -887,10 +894,15 @@ router.post('/profile', protect, async (req: AuthRequest, res: Response) => {
       docVerification = vResult.verification;
     }
 
-    const kycStatus =
-      docVerification?.verificationStatus === 'AUTOMATED_VERIFICATION_PASSED'
-        ? 'VERIFIED'
-        : user.kycStatus || 'PENDING';
+    const isDocVerified =
+      docVerification?.verificationStatus === 'VERIFIED' ||
+      docVerification?.verificationStatus === 'AUTOMATED_VERIFICATION_PASSED';
+
+    const kycStatus = isDocVerified
+      ? 'VERIFIED'
+      : docVerification?.verificationStatus === 'REJECTED'
+      ? 'REJECTED'
+      : user.kycStatus || 'PENDING';
 
     const profileData = {
       userId: req.userId,
@@ -1102,12 +1114,20 @@ const getContractorStatsHandler = async (req: AuthRequest, res: Response) => {
       .sort({ createdAt: -1 })
       .limit(6);
 
+    const isVerified = Boolean(
+      user?.isVerified === true ||
+      profile?.kycStatus === 'VERIFIED' ||
+      profile?.documentVerification?.verificationStatus === 'VERIFIED' ||
+      profile?.documentVerification?.verificationStatus === 'AUTOMATED_VERIFICATION_PASSED'
+    );
+
     res.json({
       fullName: user?.fullName || profile?.fullName || 'Contractor',
       profileImage: profile?.profileImage || user?.profileImage || '',
       kycStatus: profile?.kycStatus || user?.kycStatus || 'PENDING',
-      isVerified: user?.isVerified || profile?.kycStatus === 'VERIFIED',
+      isVerified,
       isAvailable: profile?.isAvailable ?? true,
+      documentVerification: profile?.documentVerification || null,
       rating: calculatedRating,
       totalReviews,
       completedJobs,
@@ -1167,14 +1187,124 @@ router.get('/profile/:id', async (req: Request, res: Response) => {
   }
 });
 
-// ── GET /api/contractors — returns verified, available contractors ──────────
-router.get('/', async (_req: Request, res: Response) => {
+// ── GET /api/contractors & /api/contractors/search — Client Contractor Search API ──────────
+export const getContractorsSearchHandler = async (req: Request, res: Response) => {
   try {
-    const profiles = await ContractorProfile.find({
-      isAvailable: true,
-    })
+    const {
+      q,
+      keyword,
+      name,
+      companyName,
+      specialization,
+      category,
+      location,
+      city,
+      experience,
+      minExperience,
+      maxExperience,
+      verified,
+      verifiedOnly,
+      isVerified,
+      services,
+      skills,
+    } = req.query;
+
+    const searchTerm = ((q || keyword) as string || '').trim();
+    const nameTerm = (name as string || '').trim();
+    const companyTerm = (companyName as string || '').trim();
+    const specTerm = ((specialization || category) as string || '').trim();
+    const locTerm = ((location || city) as string || '').trim();
+    const servicesTerm = ((services || skills) as string || '').trim();
+
+    const minExpNum = minExperience ? Number(minExperience) : experience ? Number(experience) : NaN;
+    const maxExpNum = maxExperience ? Number(maxExperience) : NaN;
+
+    const isVerifiedOnly =
+      String(verifiedOnly).toLowerCase() === 'true' ||
+      String(verified).toLowerCase() === 'true' ||
+      String(isVerified).toLowerCase() === 'true';
+
+
+    const conditions: any[] = [];
+
+    // 1. Keyword search across contractor fields (case-insensitive partial match)
+    if (searchTerm) {
+      const escaped = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(escaped, 'i');
+      conditions.push({
+        $or: [
+          { fullName: regex },
+          { businessName: regex },
+          { primaryTrade: regex },
+          { specializations: regex },
+          { city: regex },
+          { serviceAreas: regex },
+          { about: regex },
+        ],
+      });
+    }
+
+    // 2. Name filter (person name)
+    if (nameTerm) {
+      const regex = new RegExp(nameTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      conditions.push({
+        $or: [{ fullName: regex }, { businessName: regex }],
+      });
+    }
+
+    // 3. Company Name filter
+    if (companyTerm) {
+      const regex = new RegExp(companyTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      conditions.push({ businessName: regex });
+    }
+
+    // 4. Specialization/Category filter
+    if (specTerm && specTerm.toUpperCase() !== 'ALL') {
+      const regex = new RegExp(specTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      conditions.push({
+        $or: [{ primaryTrade: regex }, { specializations: regex }],
+      });
+    }
+
+    // 5. Location filter
+    if (locTerm) {
+      const regex = new RegExp(locTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      conditions.push({
+        $or: [{ city: regex }, { serviceAreas: regex }],
+      });
+    }
+
+    // 6. Services/Skills filter
+    if (servicesTerm) {
+      const regex = new RegExp(servicesTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      conditions.push({
+        $or: [{ primaryTrade: regex }, { specializations: regex }, { serviceAreas: regex }],
+      });
+    }
+
+    // 7. Numeric Experience filtering
+    if (!isNaN(minExpNum) && minExpNum >= 0) {
+      conditions.push({ experienceYears: { $gte: minExpNum } });
+    }
+    if (!isNaN(maxExpNum) && maxExpNum >= 0) {
+      conditions.push({ experienceYears: { $lte: maxExpNum } });
+    }
+
+    // 8. Verification filtering
+    if (isVerifiedOnly) {
+      conditions.push({
+        $or: [
+          { kycStatus: 'VERIFIED' },
+          { 'documentVerification.verificationStatus': 'AUTOMATED_VERIFICATION_PASSED' },
+        ],
+      });
+    }
+
+    const filterQuery = conditions.length > 0 ? { $and: conditions } : {};
+
+    const profiles = await ContractorProfile.find(filterQuery)
       .sort({ averageRating: -1, completedProjects: -1 })
-      .limit(20);
+      .limit(50);
 
     if (profiles.length > 0) {
       const formatted = profiles.map((p) => {
@@ -1183,15 +1313,30 @@ router.get('/', async (_req: Request, res: Response) => {
 
         return {
           _id: String(p.userId),
+          id: String(p.userId),
+          profileId: String(p._id),
           fullName: p.fullName,
+          businessName: p.businessName || '',
+          companyName: p.businessName || p.fullName,
           profileImage: p.profileImage || p.portfolioImages?.[0] || '',
+          photo: p.profileImage || p.portfolioImages?.[0] || 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=200',
           specialization: p.primaryTrade || p.specializations?.[0] || 'Contractor',
+          primaryTrade: p.primaryTrade || 'Contractor',
+          specializations: p.specializations || [],
+          services: p.specializations || [p.primaryTrade || 'Contractor'],
           averageRating: p.averageRating || 0,
+          rating: p.averageRating || 0,
+          reviews: p.totalReviews || 0,
           completedProjects: p.completedProjects || 0,
-          isVerified: p.kycStatus === 'VERIFIED',
+          isVerified: p.kycStatus === 'VERIFIED' || p.documentVerification?.verificationStatus === 'AUTOMATED_VERIFICATION_PASSED',
+          verified: p.kycStatus === 'VERIFIED' || p.documentVerification?.verificationStatus === 'AUTOMATED_VERIFICATION_PASSED',
           isAvailable: p.isAvailable,
-          city: p.city,
-          experienceYears: p.experienceYears,
+          city: p.city || 'Coimbatore',
+          location: p.city || 'Coimbatore',
+          serviceAreas: p.serviceAreas || [],
+          experienceYears: p.experienceYears || 0,
+          experience: `${p.experienceYears || 0} years`,
+          about: p.about || '',
           portfolioAuthenticity: summary,
           portfolioImages: p.portfolioImages || [],
           portfolioItems: items.map((i) => ({
@@ -1202,34 +1347,68 @@ router.get('/', async (_req: Request, res: Response) => {
           })),
         };
       });
-      res.status(200).json({ contractors: formatted });
+      res.status(200).json({ contractors: formatted, total: formatted.length });
       return;
     }
 
-    const contractors = await User.find({
-      role: 'CONTRACTOR',
-      status: 'ACTIVE',
-    })
+    // Fallback search in User model if no ContractorProfile matched
+    const userConditions: any[] = [{ role: 'CONTRACTOR', status: 'ACTIVE' }];
+    if (searchTerm) {
+      const regex = new RegExp(searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      userConditions.push({
+        $or: [{ fullName: regex }, { specialization: regex }],
+      });
+    }
+    if (specTerm && specTerm.toUpperCase() !== 'ALL') {
+      const regex = new RegExp(specTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      userConditions.push({ specialization: regex });
+    }
+    if (isVerifiedOnly) {
+      userConditions.push({
+        $or: [{ kycStatus: 'VERIFIED' }, { isVerified: true }],
+      });
+    }
+
+    const contractors = await User.find({ $and: userConditions })
       .select('fullName profileImage specialization averageRating completedProjects isVerified isAvailable kycStatus')
       .sort({ averageRating: -1 })
-      .limit(20);
+      .limit(50);
 
     const formattedUsers = contractors.map((u) => ({
       _id: String(u._id),
+      id: String(u._id),
       fullName: u.fullName,
+      businessName: '',
+      companyName: u.fullName,
       profileImage: u.profileImage || '',
+      photo: u.profileImage || 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=200',
       specialization: u.specialization || 'Contractor',
+      primaryTrade: u.specialization || 'Contractor',
+      specializations: u.specialization ? [u.specialization] : ['Contractor'],
+      services: u.specialization ? [u.specialization] : ['Contractor'],
       averageRating: u.averageRating || 0,
+      rating: u.averageRating || 0,
+      reviews: 0,
       completedProjects: u.completedProjects || 0,
       isVerified: u.isVerified || u.kycStatus === 'VERIFIED',
+      verified: u.isVerified || u.kycStatus === 'VERIFIED',
       isAvailable: u.isAvailable ?? true,
+      city: 'Coimbatore',
+      location: 'Coimbatore',
+      experienceYears: 5,
+      experience: '5 years',
       portfolioAuthenticity: calculatePortfolioAuthenticitySummary([]),
     }));
 
-    res.status(200).json({ contractors: formattedUsers });
-  } catch {
-    res.status(500).json({ message: 'Server error fetching contractors.' });
+    res.status(200).json({ contractors: formattedUsers, total: formattedUsers.length });
+  } catch (err) {
+    console.error('Error in contractor search handler:', err);
+    res.status(500).json({ message: 'Unable to perform search. Please try again.' });
   }
-});
+};
+
+router.get('/search', getContractorsSearchHandler);
+router.get('/', getContractorsSearchHandler);
 
 export default router;
+

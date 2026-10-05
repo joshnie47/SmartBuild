@@ -4,17 +4,20 @@ export type ScreenId =
   | 'auth'
   | 'admin-login'
   | 'client-home'
+  | 'client-search'
   | 'post-project'
   | 'contractor-results'
   | 'project-tracking'
   | 'review-dispute'
   | 'contractor-onboarding'
   | 'contractor-dashboard'
+  | 'contractor-search'
   | 'submit-quote'
   | 'project-update'
   | 'contractor-profile'
   | 'admin-dashboard'
   | 'chat';
+
 
 export type AiClassification = 'LIKELY_REAL' | 'LIKELY_AI_GENERATED' | 'UNCERTAIN';
 export type PortfolioAuthenticity = 'LIKELY_REAL' | 'LIKELY_AI' | 'UNCERTAIN' | 'AI_GENERATED';
@@ -134,13 +137,22 @@ export interface ChatMessage {
   time: string;
 }
 
+export type VerificationMethod = 'AUTOMATED' | 'MANUAL' | 'LEGACY';
+
 export type DocumentVerificationStatus =
+  | 'VERIFIED'
+  | 'MANUAL_REVIEW'
+  | 'REJECTED'
   | 'AUTOMATED_VERIFICATION_PASSED'
   | 'VERIFICATION_REQUIRED'
   | 'VERIFICATION_FAILED';
 
 export interface DocumentVerificationDetails {
   verificationStatus: DocumentVerificationStatus;
+  detailsMatch?: boolean;
+  details_match?: boolean;
+  verificationMethod?: VerificationMethod;
+  verificationReason?: string;
   aadhaarNumberEntered?: string;
   companyPanEntered?: string;
   aadhaarDocUrl?: string;

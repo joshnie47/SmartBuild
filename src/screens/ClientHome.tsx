@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Plus, MapPin, ChevronRight, FileText, BadgeCheck } from 'lucide-react';
+import { Plus, MapPin, ChevronRight, FileText, BadgeCheck, Search } from 'lucide-react';
 import { TopNav } from '../components/TopNav';
-import { MicButton, StatusBadge, StarRating, Avatar } from '../components/ui';
+import { StatusBadge, StarRating, Avatar } from '../components/ui';
 import type { ScreenId } from '../types';
 import { useLocale } from '../i18n/LocaleContext';
 import { t } from '../i18n';
@@ -96,14 +96,25 @@ export function ClientHome({
           {t(locale, 'activeProjectsSummary')}
         </p>
 
-        {/* Primary CTA */}
-        <button
-          onClick={() => onNavigate('post-project')}
-          className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-amber-400 py-3.5 text-sm font-semibold text-navy-700 shadow-soft transition-all hover:bg-amber-300 hover:shadow-card"
-        >
-          <Plus className="h-5 w-5" strokeWidth={2} />
-          {t(locale, 'postAProject')}
-        </button>
+        {/* Primary CTAs */}
+        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button
+            onClick={() => onNavigate('post-project')}
+            className="flex items-center justify-center gap-2 rounded-xl bg-amber-400 py-3.5 text-sm font-semibold text-navy-700 shadow-soft transition-all hover:bg-amber-300 hover:shadow-card"
+          >
+            <Plus className="h-5 w-5" strokeWidth={2} />
+            {t(locale, 'postAProject')}
+          </button>
+
+          <button
+            onClick={() => onNavigate('client-search')}
+            className="flex items-center justify-center gap-2 rounded-xl border border-navy-200 bg-navy-50 py-3.5 text-sm font-semibold text-navy-700 shadow-soft transition-all hover:bg-navy-100"
+          >
+            <Search className="h-4 w-4 text-navy-600" strokeWidth={2} />
+            {t(locale, 'searchAndFindContractors')}
+          </button>
+        </div>
+
 
         {/* Active Projects */}
         <div className="mt-8">
@@ -171,11 +182,11 @@ export function ClientHome({
                           </span>
                         ) : p.status === 'COMPLETED' ? (
                           <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
-                            100% Completed
+                            {t(locale, 'hundredPctCompleted')}
                           </span>
                         ) : (
                           <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-800">
-                            Stage: {currentStage?.label || 'Site Visit'} ({progressPct}%)
+                            {t(locale, 'stage')}: {currentStage?.label || 'Site Visit'} ({progressPct}%)
                           </span>
                         )}
                       </div>
@@ -184,7 +195,7 @@ export function ClientHome({
                       </p>
                       {contractorName && (
                         <p className="mt-0.5 text-xs font-medium text-navy-600">
-                          👷 Contractor: {contractorName}
+                          👷 {t(locale, 'contractor')}: {contractorName}
                         </p>
                       )}
                       <p className="mt-0.5 text-xs text-gray-400">
@@ -217,7 +228,7 @@ export function ClientHome({
               <p className="text-sm text-gray-400 py-4">{t(locale, 'loading')}</p>
             ) : contractors.length === 0 ? (
               <p className="text-sm text-gray-400 py-4">
-                No verified contractors available right now. Check back soon.
+                {t(locale, 'noVerifiedContractorsRightNow')}
               </p>
             ) : (
               contractors.slice(0, 6).map((c) => (
@@ -243,11 +254,11 @@ export function ClientHome({
                     <div className="mt-1.5">
                       {c.portfolioAuthenticity.status === 'ALL_REAL' ? (
                         <span className="inline-flex items-center gap-1 rounded bg-emerald-100/90 px-1.5 py-0.5 text-[9px] font-bold text-emerald-800">
-                          🛡️ 100% Real Work Verified
+                          {t(locale, 'realWorkVerified')}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 rounded bg-purple-100/90 px-1.5 py-0.5 text-[9px] font-bold text-purple-800">
-                          ✨ Real + AI Concept
+                          {t(locale, 'realAiConcept')}
                         </span>
                       )}
                     </div>
@@ -269,7 +280,6 @@ export function ClientHome({
           </div>
         </div>
       </div>
-      <MicButton />
     </div>
   );
 }

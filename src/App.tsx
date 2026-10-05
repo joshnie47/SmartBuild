@@ -4,6 +4,7 @@ import { LocaleContext } from './i18n/LocaleContext';
 import { getStoredLocale, storeLocale } from './i18n';
 import type { Locale } from './i18n';
 import { getToken, setToken, clearToken } from './lib/auth';
+import { chatSocket } from './lib/chatSocket';
 import { apiGetMe, apiGetContractorProfileMe, type ApiUser } from './lib/api';
 import { Sidebar } from './components/Sidebar';
 import { SidebarContext } from './components/sidebar-context';
@@ -22,6 +23,9 @@ import { ContractorProfile } from './screens/ContractorProfile';
 import { AdminDashboard } from './screens/AdminDashboard';
 import { AdminLoginScreen } from './screens/AdminLoginScreen';
 import { Chat } from './screens/Chat';
+import { ClientSearch } from './screens/ClientSearch';
+import { ContractorSearch } from './screens/ContractorSearch';
+
 
 const ADMIN_SCREENS: ScreenId[] = ['admin-dashboard'];
 
@@ -102,17 +106,23 @@ function App() {
     }
   };
 
-  const handleNavigate = (id: ScreenId, projectId?: string) => {
-    if (projectId) {
-      setActiveProjectId(projectId);
+  const [searchQueryParam, setSearchQueryParam] = useState<string>('');
+
+  const handleNavigate = (id: ScreenId, projectIdOrQuery?: string) => {
+    if (id === 'client-search' || id === 'contractor-search') {
+      setSearchQueryParam(projectIdOrQuery || '');
+    } else if (projectIdOrQuery) {
+      setActiveProjectId(projectIdOrQuery);
     }
     if (id === 'auth') {
       clearToken();
+      chatSocket.disconnect();
       setAdminSession(false);
       setRole(null);
       setCurrentUser(null);
       setScreen('auth');
       setActiveProjectId(null);
+      setSearchQueryParam('');
       return;
     }
     if (ADMIN_SCREENS.includes(id) && role !== 'admin') {
@@ -169,6 +179,8 @@ function App() {
     switch (screen) {
       case 'client-home':
         return <ClientHome onNavigate={handleNavigate} />;
+      case 'client-search':
+        return <ClientSearch onNavigate={handleNavigate} initialQuery={searchQueryParam} />;
       case 'post-project':
         return <PostProject onNavigate={handleNavigate} />;
       case 'contractor-results':
@@ -181,6 +193,8 @@ function App() {
         return <ContractorOnboarding onNavigate={handleNavigate} />;
       case 'contractor-dashboard':
         return <ContractorDashboard onNavigate={handleNavigate} />;
+      case 'contractor-search':
+        return <ContractorSearch onNavigate={handleNavigate} initialQuery={searchQueryParam} />;
       case 'submit-quote':
         return <SubmitQuote onNavigate={handleNavigate} projectId={activeProjectId || undefined} />;
       case 'project-update':
@@ -188,11 +202,12 @@ function App() {
       case 'contractor-profile':
         return <ContractorProfile onNavigate={handleNavigate} />;
       case 'chat':
-        return <Chat onNavigate={handleNavigate} />;
+        return <Chat onNavigate={handleNavigate} initialProjectId={activeProjectId || undefined} />;
       default:
         return <ClientHome onNavigate={handleNavigate} />;
     }
   };
+
 
   return (
     <LocaleContext.Provider value={{ locale, setLocale: handleSetLocale }}>

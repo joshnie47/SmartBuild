@@ -11,6 +11,7 @@ import { ContractorProfile, IPortfolioItem } from '../models/ContractorProfile';
 import { Notification } from '../models/Notification';
 import { getCategoryStages } from '../utils/trackingStages';
 import { detectImageAuthenticity } from '../services/aiImageDetectionService';
+import { calculateContractorRecommendations } from '../services/recommendationService';
 
 
 export const CATEGORIES = [
@@ -217,15 +218,113 @@ router.get('/stats', protect, async (req: AuthRequest, res: Response) => {
   }
 });
 
-// GET /api/projects/feed — returns available OPEN projects for contractors (strictly from real CLIENT users)
-router.get('/feed', protect, async (_req: AuthRequest, res: Response) => {
+// ── GET /api/projects/search & /api/projects/feed — Contractor Project Search API ──────────
+export const getProjectsSearchHandler = async (req: AuthRequest, res: Response) => {
   try {
-    const projects = await Project.find({
-      status: 'OPEN',
-      clientId: { $exists: true, $ne: null },
-    })
-      .populate('clientId', 'fullName role')
-      .sort({ createdAt: -1 });
+    const {
+      q,
+      keyword,
+      title,
+      category,
+      location,
+      city,
+      minBudget,
+      maxBudget,
+      status,
+      timeline,
+      deadline,
+    } = req.query;
+
+    const searchTerm = ((q || keyword) as string || '').trim();
+    const titleTerm = (title as string || '').trim();
+    const catTerm = (category as string || '').trim();
+    const locTerm = ((location || city) as string || '').trim();
+    const timelineTerm = ((timeline || deadline) as string || '').trim();
+
+    const minBudgetNum = minBudget ? Number(minBudget) : NaN;
+    const maxBudgetNum = maxBudget ? Number(maxBudget) : NaN;
+
+    const statusTerm = (status as string || '').trim().toUpperCase();
+
+    const conditions: any[] = [];
+
+    // Base condition: only projects posted by valid clients
+    conditions.push({ clientId: { $exists: true, $ne: null } });
+
+    // Status & Authorization filter
+    const isContractor = req.user && req.user.role === 'CONTRACTOR';
+    if (statusTerm === 'IN_PROGRESS' || statusTerm === 'COMPLETED') {
+      if (isContractor) {
+        conditions.push({ status: statusTerm, assignedContractorId: req.user._id });
+      } else {
+        conditions.push({ status: statusTerm });
+      }
+    } else if (statusTerm === 'ALL') {
+      if (isContractor) {
+        conditions.push({
+          $or: [{ status: 'OPEN' }, { assignedContractorId: req.user._id }],
+        });
+      }
+    } else {
+      conditions.push({ status: 'OPEN' });
+    }
+
+    // 1. Keyword search across title, description, category, location, streetArea, timeline
+    if (searchTerm) {
+      const escaped = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(escaped, 'i');
+      conditions.push({
+        $or: [
+          { title: regex },
+          { description: regex },
+          { category: regex },
+          { location: regex },
+          { streetArea: regex },
+          { timeline: regex },
+        ],
+      });
+    }
+
+    // 2. Title filter
+    if (titleTerm) {
+      const regex = new RegExp(titleTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      conditions.push({ title: regex });
+    }
+
+    // 3. Category filter
+    if (catTerm && catTerm.toUpperCase() !== 'ALL') {
+      const regex = new RegExp(catTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      conditions.push({ category: regex });
+    }
+
+    // 4. Location filter
+    if (locTerm) {
+      const regex = new RegExp(locTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      conditions.push({
+        $or: [{ location: regex }, { streetArea: regex }],
+      });
+    }
+
+    // 5. Timeline / Deadline filter
+    if (timelineTerm) {
+      const regex = new RegExp(timelineTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      conditions.push({ timeline: regex });
+    }
+
+    // 6. Numeric Budget range filter
+    if (!isNaN(minBudgetNum) && minBudgetNum >= 0) {
+      conditions.push({ budget: { $gte: minBudgetNum } });
+    }
+    if (!isNaN(maxBudgetNum) && maxBudgetNum >= 0) {
+      conditions.push({ budget: { $lte: maxBudgetNum } });
+    }
+
+    const filterQuery = { $and: conditions };
+
+    const projects = await Project.find(filterQuery)
+      .populate('clientId', 'fullName role email phone')
+      .sort({ createdAt: -1 })
+      .limit(50);
 
     // Enforce business rule: only show projects posted by genuine CLIENT users
     const validProjects = projects.filter((p) => {
@@ -245,12 +344,16 @@ router.get('/feed', protect, async (_req: AuthRequest, res: Response) => {
       })
     );
 
-    res.json({ projects: enriched });
+    res.json({ projects: enriched, total: enriched.length });
   } catch (err) {
-    console.error('Error fetching projects feed:', err);
-    res.status(500).json({ message: 'Server error fetching project opportunities.' });
+    console.error('Error searching projects:', err);
+    res.status(500).json({ message: 'Unable to perform search. Please try again.' });
   }
-});
+};
+
+router.get('/search', protect, getProjectsSearchHandler);
+router.get('/feed', protect, getProjectsSearchHandler);
+
 
 // GET /api/projects/contractor/my-projects — active / awarded projects for contractor
 router.get('/contractor/my-projects', protect, async (req: AuthRequest, res: Response) => {
@@ -1054,175 +1157,27 @@ router.post('/:id/verify-completion', protect, async (req: AuthRequest, res: Res
 router.get('/:id/recommendations', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const project = await Project.findById(id);
-    if (!project) {
-      res.status(404).json({ message: 'Project not found.' });
-      return;
+    const { project, recommendations, weights } = await calculateContractorRecommendations(id);
+
+    // Attach bid information for each candidate if a bid has been submitted
+    for (const c of recommendations) {
+      const bid = await Bid.findOne({ projectId: project._id, contractorId: c._id });
+      if (bid) {
+        c.quotedPrice = bid.amount;
+        c.timeline = `${bid.estimatedDays} days`;
+        c.bidId = String(bid._id);
+        c.proposalMessage = bid.proposalMessage || '';
+      }
     }
-
-    const profiles = await ContractorProfile.find({ isAvailable: true });
-    const userContractors = await User.find({ role: 'CONTRACTOR', status: 'ACTIVE' });
-
-    const candidates = [];
-    for (const p of profiles) {
-      const user = userContractors.find((u) => u._id.toString() === p.userId.toString());
-      const isVerified = p.kycStatus === 'VERIFIED' || user?.isVerified === true;
-
-      let score = 50;
-      const cat = (project.category || '').toLowerCase();
-      const trade = (p.primaryTrade || '').toLowerCase();
-      const specs = (p.specializations || []).map((s) => s.toLowerCase());
-
-      if (trade.includes(cat) || cat.includes(trade)) {
-        score += 25;
-      } else if (specs.some((s) => s.includes(cat) || cat.includes(s))) {
-        score += 20;
-      }
-
-      const projLoc = (project.location || '').toLowerCase();
-      const city = (p.city || '').toLowerCase();
-      const areas = (p.serviceAreas || []).map((a) => a.toLowerCase());
-      if (projLoc.includes(city) || city.includes(projLoc)) {
-        score += 15;
-      } else if (areas.some((a) => projLoc.includes(a) || a.includes(projLoc))) {
-        score += 10;
-      }
-
-      if (isVerified) {
-        score += 10;
-      }
-
-      if ((p.averageRating || 0) >= 4.5) {
-        score += 5;
-      }
-
-      // ── Portfolio Authenticity Factor in Recommendation Algorithm (Requirement 7) ──
-      const portfolioItems: IPortfolioItem[] = (p.portfolioItems && p.portfolioItems.length > 0)
-        ? p.portfolioItems
-        : (p.portfolioImages || []).map((url) => ({
-            imageUrl: url,
-            originalFilename: 'portfolio.jpg',
-            mimeType: 'image/jpeg',
-            fileSize: 0,
-            aiClassification: 'LIKELY_REAL' as const,
-            aiConfidence: 0.05,
-            aiProvider: 'Groq Vision Forensic Engine',
-            aiModel: 'qwen/qwen3.8-27b',
-            aiDetectionTimestamp: new Date(),
-            contractorConfirmedAI: false,
-            url,
-            authenticity: 'LIKELY_REAL' as const,
-            confidence: 0.95,
-            analysisReason: 'Verified project photograph',
-            detectedFeatures: ['Physical site lighting verified'],
-            isAiMarked: false,
-          }));
-
-      const totalPhotos = portfolioItems.length;
-      const realCount = portfolioItems.filter(
-        (i) => (i.aiClassification === 'LIKELY_REAL' || i.authenticity === 'LIKELY_REAL') &&
-               !i.contractorConfirmedAI && !i.isAiMarked
-      ).length;
-      const aiCount = portfolioItems.filter(
-        (i) => i.aiClassification === 'LIKELY_AI_GENERATED' ||
-               i.contractorConfirmedAI ||
-               i.isAiMarked ||
-               i.authenticity === 'AI_GENERATED' ||
-               i.authenticity === 'LIKELY_AI'
-      ).length;
-      const uncertainCount = portfolioItems.filter(
-        (i) => i.aiClassification === 'UNCERTAIN' || i.authenticity === 'UNCERTAIN'
-      ).length;
-
-      const realPercentage = totalPhotos > 0 ? Math.round((realCount / totalPhotos) * 100) : 0;
-
-      // Proportional Authenticity Factor (~10% proportional weight)
-      // High authenticity (100% genuine) gives max 10 points bonus.
-      // Contractors with AI concepts are NEVER auto-rejected; they receive a proportional transparency score.
-      if (totalPhotos > 0) {
-        const authenticityBonus = Math.round((realCount / totalPhotos) * 10);
-        score += authenticityBonus;
-      }
-
-      let portfolioStatus: 'ALL_REAL' | 'MIXED_AI' | 'ALL_AI' | 'NO_PHOTOS' = 'NO_PHOTOS';
-      let portfolioLabel = 'No Portfolio Photos';
-
-      if (totalPhotos > 0) {
-        if (aiCount === 0 && uncertainCount === 0 && realCount > 0) {
-          portfolioStatus = 'ALL_REAL';
-          portfolioLabel = '100% Verified Real Project Photos';
-        } else if (realCount > 0 && aiCount > 0) {
-          portfolioStatus = 'MIXED_AI';
-          portfolioLabel = `Verified Real (${realCount}) + AI Concepts (${aiCount})`;
-        } else if (aiCount > 0 && realCount === 0) {
-          portfolioStatus = 'ALL_AI';
-          portfolioLabel = 'AI Concept Renderings';
-        } else {
-          portfolioStatus = 'MIXED_AI';
-          portfolioLabel = `${realPercentage}% Verified Real Photos`;
-        }
-      }
-
-      score = Math.min(99, Math.max(50, score));
-
-      const bid = await Bid.findOne({ projectId: project._id, contractorId: p.userId });
-
-      // Sanitized portfolio items for client view (No internal provider/model leaked per Requirement 8)
-      const sanitizedClientItems = portfolioItems.map((item) => ({
-        imageUrl: item.imageUrl || item.url || '',
-        originalFilename: item.originalFilename || 'portfolio.jpg',
-        aiClassification: item.aiClassification || (item.isAiMarked ? 'LIKELY_AI_GENERATED' : 'LIKELY_REAL'),
-        aiConfidence: item.aiConfidence || 0.05,
-        contractorConfirmedAI: item.contractorConfirmedAI || item.isAiMarked || false,
-        analysisReason: item.analysisReason || '',
-        detectedFeatures: item.detectedFeatures || [],
-      }));
-
-      candidates.push({
-        _id: String(p.userId),
-        id: String(p.userId),
-        name: p.fullName || user?.fullName || 'Contractor',
-        specialization: p.primaryTrade || specs[0] || 'General Contractor',
-        experience: `${p.experienceYears || 5} yrs`,
-        experienceYears: p.experienceYears || 5,
-        rating: p.averageRating || 4.8,
-        reviews: p.totalReviews || 12,
-        verified: isVerified,
-        kycStatus: p.kycStatus,
-        city: p.city || 'Coimbatore',
-        distance: projLoc.includes(city) ? 'Nearby (2.5 km)' : 'Within city (5.0 km)',
-        matchScore: score,
-        quotedPrice: bid ? bid.amount : Math.round((project.budget || 25000) * 0.95),
-        timeline: bid ? `${bid.estimatedDays} days` : project.timeline || '2-3 weeks',
-        bidId: bid ? String(bid._id) : null,
-        proposalMessage: bid?.proposalMessage || '',
-        photo: p.profileImage || p.portfolioImages?.[0] || 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=150',
-        portfolioImages: p.portfolioImages || [],
-        portfolioItems: sanitizedClientItems,
-        portfolioAuthenticity: {
-          status: portfolioStatus,
-          label: portfolioLabel,
-          realPercentage,
-          realCount,
-          aiCount,
-          uncertainCount,
-          totalCount: totalPhotos,
-        },
-      });
-    }
-
-    candidates.sort((a, b) => {
-      if (a.verified !== b.verified) return a.verified ? -1 : 1;
-      return b.matchScore - a.matchScore;
-    });
 
     res.json({
       project,
-      recommendations: candidates,
+      recommendations,
+      weights,
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error('Error fetching recommendations:', err);
-    res.status(500).json({ message: 'Server error fetching contractor recommendations.' });
+    res.status(500).json({ message: err?.message || 'Server error fetching contractor recommendations.' });
   }
 });
 

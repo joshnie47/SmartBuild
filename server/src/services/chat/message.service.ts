@@ -1,5 +1,9 @@
 import mongoose from 'mongoose';
 import { Message, IMessage } from '../../models/Message';
+import { Conversation } from '../../models/Conversation';
+import { User } from '../../models/User';
+import { Project } from '../../models/Project';
+import { Notification } from '../../models/Notification';
 import { updateLastMessage } from './conversation.service';
 
 export interface CreateMessageInput {
@@ -38,6 +42,47 @@ export async function createMessage(input: CreateMessageInput): Promise<IMessage
 
   // Keep the denormalized lastMessage on the conversation in sync
   await updateLastMessage(conversationId, message.body, senderId, message.createdAt);
+
+  // Trigger notification for recipient(s) asynchronously
+  try {
+    const conversation = await Conversation.findById(conversationId).lean();
+    if (conversation && conversation.participants) {
+      const senderUser = await User.findById(senderId).select('fullName').lean();
+      const senderName = senderUser?.fullName || 'User';
+
+      let projectTitle = '';
+      if (conversation.projectId) {
+        const project = await Project.findById(conversation.projectId).select('title').lean();
+        if (project) {
+          projectTitle = project.title;
+        }
+      }
+
+      const snippet = body.trim().length > 60 ? `${body.trim().slice(0, 60)}...` : body.trim();
+      const notificationTitle = `New message from ${senderName}`;
+      const notificationMessage = projectTitle
+        ? `"${snippet}" (${projectTitle})`
+        : `"${snippet}"`;
+
+      const recipients = conversation.participants.filter(
+        (p) => p.userId.toString() !== senderId.toString()
+      );
+
+      for (const recipient of recipients) {
+        await Notification.create({
+          recipientId: recipient.userId,
+          senderId: new mongoose.Types.ObjectId(senderId),
+          title: notificationTitle,
+          message: notificationMessage,
+          type: 'CHAT_MESSAGE',
+          projectId: conversation.projectId || null,
+          isRead: false,
+        });
+      }
+    }
+  } catch (err) {
+    console.error('Error creating chat notification:', err);
+  }
 
   return message;
 }

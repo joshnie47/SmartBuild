@@ -1,36 +1,4 @@
-import { Mic, X } from 'lucide-react';
-
-export function MicButton({ onClick, onTranscript }: { onClick?: () => void; onTranscript?: (text: string) => void }) {
-  return (
-    <button
-      onClick={() => {
-        if (onClick) onClick();
-        if (onTranscript) onTranscript('Renovation and painting required');
-      }}
-      aria-label="Voice input"
-      className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-amber-400 text-navy-700 shadow-float transition-transform hover:scale-105 active:scale-95"
-    >
-      <Mic className="h-6 w-6" strokeWidth={2} />
-      <span className="absolute inset-0 animate-pulseAmber rounded-full" />
-    </button>
-  );
-}
-
-export function MicInline({ onClick, onTranscript }: { onClick?: () => void; onTranscript?: (text: string) => void }) {
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        if (onClick) onClick();
-        if (onTranscript) onTranscript('Requirements detail');
-      }}
-      aria-label="Voice input"
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-navy-400 transition-colors hover:bg-navy-50 hover:text-navy-600"
-    >
-      <Mic className="h-4 w-4" strokeWidth={1.75} />
-    </button>
-  );
-}
+import { X } from 'lucide-react';
 
 export function Modal({
   open,
@@ -93,14 +61,57 @@ export function StarRating({ rating, size = 'sm' }: { rating: number; size?: 'sm
 
 export function Avatar({ src, alt, size = 'md' }: { src?: string; alt: string; size?: 'sm' | 'md' | 'lg' }) {
   const sz = size === 'sm' ? 'h-8 w-8' : size === 'lg' ? 'h-12 w-12' : 'h-10 w-10';
-  if (src) {
-    return <img src={src} alt={alt} className={`${sz} rounded-full object-cover`} />;
+  if (src && src.trim()) {
+    return <img src={src} alt={alt} className={`${sz} rounded-full object-cover shadow-xs`} />;
   }
-  const initials = alt.split(' ').map((w) => w[0]).slice(0, 2).join('');
+  const cleanAlt = (alt || '').trim();
+  const initial = cleanAlt ? cleanAlt[0].toUpperCase() : 'U';
   return (
-    <div className={`${sz} flex shrink-0 items-center justify-center rounded-full bg-navy-600 text-sm font-medium text-white`}>
-      {initials}
+    <div className={`${sz} flex shrink-0 items-center justify-center rounded-full bg-navy-600 text-sm font-bold text-white shadow-xs`}>
+      {initial}
     </div>
+  );
+}
+
+export function ToggleSwitch({
+  checked,
+  onChange,
+  onLabel = 'ON',
+  offLabel = 'OFF',
+  ariaLabel = 'Toggle switch',
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  onLabel?: string;
+  offLabel?: string;
+  ariaLabel?: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={ariaLabel}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-8 w-24 shrink-0 cursor-pointer items-center rounded-full p-1 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-navy-500 focus:ring-offset-2 ${
+        checked ? 'bg-emerald-600' : 'bg-gray-400'
+      }`}
+    >
+      <span
+        className={`flex h-6 w-6 transform items-center justify-center rounded-full bg-white text-[10px] font-black shadow-md transition duration-200 ease-in-out ${
+          checked ? 'translate-x-[4rem] text-emerald-700' : 'translate-x-0 text-gray-600'
+        }`}
+      >
+        {checked ? '✓' : '✕'}
+      </span>
+      <span
+        className={`absolute text-[11px] font-black uppercase tracking-wider select-none ${
+          checked ? 'left-3 text-white' : 'right-3 text-navy-950'
+        }`}
+      >
+        {checked ? onLabel : offLabel}
+      </span>
+    </button>
   );
 }
 

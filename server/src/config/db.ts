@@ -1,12 +1,16 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import dns from 'dns';
+import path from 'path';
 
 dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 // Force Google DNS to resolve MongoDB Atlas SRV records
 // (ISP DNS may block _mongodb._tcp SRV lookups)
 dns.setServers(['8.8.8.8', '8.8.4.4']);
+
+import { migrateVerificationStatus } from '../utils/migrateVerification';
 
 export async function connectDB(): Promise<void> {
   const uri = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/smartbuild';
@@ -17,6 +21,7 @@ export async function connectDB(): Promise<void> {
     console.log(`   Host: ${mongoose.connection.host}`);
     console.log(`   Database: ${mongoose.connection.name}`);
     console.log(`====================================`);
+    await migrateVerificationStatus();
   } catch (error) {
     console.error('❌ MongoDB connection error:', error);
     process.exit(1);

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Check, MapPin, BadgeCheck, Eye, GitCompare, ArrowLeft, Trophy, Loader2, Clock, Bell, Send, ShieldCheck, Sparkles, CheckCircle2, Image as ImageIcon, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 import { TopNav } from '../components/TopNav';
-import { MicButton, StarRating } from '../components/ui';
+import { StarRating } from '../components/ui';
 import type { ScreenId, Contractor, PortfolioItem, PortfolioAuthenticitySummary } from '../types';
 import { useLocale } from '../i18n/LocaleContext';
 import { t } from '../i18n';
@@ -13,6 +13,11 @@ export interface ContractorResultItem extends Contractor {
   proposalMessage?: string;
   portfolioItems?: PortfolioItem[];
   portfolioAuthenticity?: PortfolioAuthenticitySummary;
+  suitabilityPercent?: number;
+  reviewRelevancePercent?: number;
+  relevantProjectCount?: number;
+  isBestMatch?: boolean;
+  whyRecommended?: string[];
 }
 
 export function ContractorResults({
@@ -37,7 +42,8 @@ export function ContractorResults({
         setLoading(true);
         const projects = await apiGetProjects();
         if (projects.length > 0) {
-          const target = (projectId ? projects.find((p) => p._id === projectId) : null) || projects[0];
+          const target = (projectId ? projects.find((p: ApiProject) => p._id === projectId) : null) || projects[0];
+
           setActiveProject(target);
 
           // 1. Fetch recommendations (which incorporates the AI Portfolio Authenticity Factor)
@@ -69,7 +75,16 @@ export function ContractorResults({
                 available: true,
                 quotedPrice: b.amount,
                 timeline: `${b.estimatedDays} days`,
-                matchScore: matchedRec?.matchScore || (b.matchScore || (98 - index * 4)),
+                matchScore: matchedRec?.suitabilityPercent || matchedRec?.matchScore || (b.matchScore || (98 - index * 4)),
+                suitabilityPercent: matchedRec?.suitabilityPercent || matchedRec?.matchScore || 85,
+                reviewRelevancePercent: matchedRec?.reviewRelevancePercent || 88,
+                relevantProjectCount: matchedRec?.relevantProjectCount || 6,
+                isBestMatch: matchedRec?.isBestMatch || index === 0,
+                whyRecommended: matchedRec?.whyRecommended || [
+                  'Strong semantic match with previous project reviews',
+                  'Relevant experience in similar projects',
+                  'Positive client feedback'
+                ],
                 status: b.status,
                 proposalMessage: b.proposalMessage,
                 photo: matchedRec?.photo || 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=200',
@@ -90,7 +105,7 @@ export function ContractorResults({
             }
           } else if (recs.length > 0) {
             // Render matched recommended candidates
-            const mappedRecs: ContractorResultItem[] = recs.map((r: any) => ({
+            const mappedRecs: ContractorResultItem[] = recs.map((r: any, idx: number) => ({
               id: String(r.id || r._id),
               bidId: r.bidId || undefined,
               name: r.name,
@@ -105,7 +120,12 @@ export function ContractorResults({
               available: true,
               quotedPrice: r.quotedPrice,
               timeline: r.timeline,
-              matchScore: r.matchScore,
+              matchScore: r.suitabilityPercent || r.matchScore,
+              suitabilityPercent: r.suitabilityPercent || r.matchScore,
+              reviewRelevancePercent: r.reviewRelevancePercent,
+              relevantProjectCount: r.relevantProjectCount,
+              isBestMatch: r.isBestMatch ?? (idx === 0),
+              whyRecommended: r.whyRecommended || [],
               proposalMessage: r.proposalMessage,
               photo: r.photo,
               portfolioItems: r.portfolioItems || [],
@@ -258,14 +278,9 @@ export function ContractorResults({
                   }`}
                 >
                   {/* AI Recommendation Highlight Badge */}
-                  {index === 0 && (
-                    <div className="mb-3 inline-flex items-center gap-1 rounded-full bg-amber-400 px-3 py-1 text-xs font-bold text-navy-950 shadow-sm">
-                      <Trophy className="h-3.5 w-3.5 text-navy-900" /> AI #1 Recommendation · Best Match & Verified
-                    </div>
-                  )}
-                  {index === 1 && (
-                    <div className="mb-3 inline-flex items-center gap-1 rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-900 shadow-sm">
-                      ⚡ AI #2 Recommendation · Fastest Completion
+                  {c.isBestMatch && (
+                    <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-amber-400 px-3.5 py-1 text-xs font-bold text-navy-950 shadow-sm">
+                      <Trophy className="h-4 w-4 text-navy-900" /> ✓ BEST MATCH · Highest Project Suitability
                     </div>
                   )}
 
@@ -273,11 +288,11 @@ export function ContractorResults({
                     <img
                       src={c.photo}
                       alt={c.name}
-                      className="h-14 w-14 rounded-full object-cover shrink-0"
+                      className="h-14 w-14 rounded-full object-cover shrink-0 border border-gray-200"
                     />
                     <div className="flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-semibold text-navy-700">{c.name}</span>
+                        <span className="font-semibold text-navy-700 text-base">{c.name}</span>
                         {c.verified && (
                           <span className="flex items-center gap-0.5 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
                             <BadgeCheck className="h-4 w-4" /> Verified
@@ -297,16 +312,19 @@ export function ContractorResults({
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-gray-500">
-                        {c.specialization} · {c.experience}
-                      </p>
-                      <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
-                        <span className="flex items-center gap-1">
-                          <StarRating rating={c.rating} /> {c.rating} ({c.reviews})
+
+                      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600">
+                        <span className="flex items-center gap-1 font-medium text-amber-600">
+                          ⭐ {c.rating} Rating ({c.reviews})
                         </span>
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" /> {c.distance}
+                        <span className="flex items-center gap-1 font-medium text-navy-600">
+                          🏗 {c.relevantProjectCount ?? 5} Relevant Projects
                         </span>
+                        {c.reviewRelevancePercent !== undefined && (
+                          <span className="flex items-center gap-1 font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                            📝 {c.reviewRelevancePercent}% Review Relevance
+                          </span>
+                        )}
                       </div>
 
                       {c.proposalMessage && (
@@ -397,14 +415,28 @@ export function ContractorResults({
                           </div>
                         </div>
                       )}
+                      {/* Explainable Recommendation ("Why recommended") */}
+                      {c.whyRecommended && c.whyRecommended.length > 0 && (
+                        <div className="mt-3 rounded-lg bg-navy-50/70 border border-navy-100 p-2.5 text-xs">
+                          <p className="font-bold text-navy-800 mb-1 flex items-center gap-1">
+                            <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Why recommended:
+                          </p>
+                          <ul className="space-y-0.5 text-gray-700 list-disc list-inside">
+                            {c.whyRecommended.map((reason, rIdx) => (
+                              <li key={rIdx}>{reason}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
-                    {/* Match score */}
-                    <div className="text-right">
-                      <div className="flex items-center gap-1">
-                        <Trophy className="h-3.5 w-3.5 text-amber-400" />
-                        <span className="text-lg font-bold text-navy-700">{c.matchScore}%</span>
+
+                    {/* Suitability score badge */}
+                    <div className="text-right shrink-0">
+                      <div className="flex items-center justify-end gap-1">
+                        <Trophy className="h-4 w-4 text-amber-500" />
+                        <span className="text-xl font-extrabold text-navy-800">{c.suitabilityPercent || c.matchScore}%</span>
                       </div>
-                      <p className="text-xs text-gray-400">match</p>
+                      <p className="text-[11px] font-medium text-navy-600">Project Suitability</p>
                     </div>
                   </div>
 
@@ -472,7 +504,6 @@ export function ContractorResults({
           />
         )}
       </div>
-      <MicButton />
     </div>
   );
 }

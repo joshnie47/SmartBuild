@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Paperclip, Send, ArrowLeft, ClipboardList, Search, Wifi, WifiOff } from 'lucide-react';
 import { TopNav } from '../components/TopNav';
-import { MicInline, MicButton, Avatar } from '../components/ui';
+import { Avatar } from '../components/ui';
 import { apiGetConversations, apiGetMessages, type ApiConversation, type ApiMessage } from '../lib/chatApi';
 import { chatSocket, type ServerEvent } from '../lib/chatSocket';
 import { useLocale } from '../i18n/LocaleContext';
@@ -18,7 +18,7 @@ interface OnlineState {
   [userId: string]: boolean;
 }
 
-export function Chat({ onNavigate }: { onNavigate: (id: ScreenId) => void }) {
+export function Chat({ onNavigate, initialProjectId }: { onNavigate: (id: ScreenId) => void; initialProjectId?: string }) {
   const { t } = useLocale();
   const [conversations, setConversations] = useState<ApiConversation[]>([]);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
@@ -49,9 +49,11 @@ export function Chat({ onNavigate }: { onNavigate: (id: ScreenId) => void }) {
     apiGetConversations()
       .then((convs) => {
         setConversations(convs);
-        // Auto-select first conversation on desktop
         if (convs.length > 0 && !activeConvId) {
-          setActiveConvId(convs[0]._id);
+          const target = initialProjectId
+            ? convs.find((c) => c._id === initialProjectId || c.projectId === initialProjectId)
+            : null;
+          setActiveConvId(target ? target._id : convs[0]._id);
           setShowMobileList(false);
         }
       })
@@ -421,7 +423,6 @@ export function Chat({ onNavigate }: { onNavigate: (id: ScreenId) => void }) {
                     placeholder={t('typeMessage')}
                     className="flex-1 rounded-lg bg-gray-100 px-4 py-2.5 text-sm text-navy-700 placeholder-gray-400 outline-none focus:bg-gray-50 focus:ring-1 focus:ring-navy-200"
                   />
-                  <MicInline />
                   <button
                     onClick={send}
                     disabled={!input.trim()}
@@ -435,8 +436,6 @@ export function Chat({ onNavigate }: { onNavigate: (id: ScreenId) => void }) {
           </div>
         </div>
       </div>
-
-      <MicButton />
     </div>
   );
 }

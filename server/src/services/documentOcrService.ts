@@ -277,16 +277,21 @@ export function extractAadhaarFields(
     }
   }
 
-  // Fallback: Pick first non-keyword alphabetic line
+  // Fallback: Pick clean non-keyword line with significant word length
   if (!personName) {
     for (const line of rawLines) {
-      const upper = line.toUpperCase();
+      const clean = line.replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, '').trim();
+      const upper = clean.toUpperCase();
+      const words = clean.split(/\s+/).filter((w) => w.length >= 3);
+
       if (
-        line.length >= 3 &&
-        /^[A-Za-z\s.]+$/.test(line) &&
-        !noiseKeywords.some((k) => upper.includes(k))
+        clean.length >= 3 &&
+        words.length >= 1 &&
+        /^[A-Za-z\s.]+$/.test(clean) &&
+        !noiseKeywords.some((k) => upper.includes(k)) &&
+        !['GM', 'QE', 'PA', 'QP', 'IMT', 'HD', 'FHA', 'SEE', 'FW', 'WIA'].includes(upper)
       ) {
-        personName = line;
+        personName = clean;
         break;
       }
     }
@@ -321,7 +326,6 @@ export function extractPanFields(
   const formatValid = validatePanFormat(panNumber);
 
   // Check 4th character entity type
-  // C = Company, F = Firm, A = Association, T = Trust, P = Person, G = Government, L = Local Auth, J = Artificial Juridical Person
   const fourthChar = panNumber.length === 10 ? panNumber[3] : '';
   const isCompanyPan = ['C', 'F', 'A', 'T', 'G', 'L', 'J'].includes(fourthChar);
 
@@ -339,10 +343,12 @@ export function extractPanFields(
     'SIGNATURE',
     'DATE OF INCORPORATION',
     'DATE OF BIRTH',
+    'SEE FW',
+    'FEAR',
   ];
 
   for (let i = 0; i < rawLines.length; i++) {
-    const line = rawLines[i].trim();
+    const line = rawLines[i].replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, '').trim();
     const upperLine = line.toUpperCase();
 
     if (upperLine.startsWith('NAME') || upperLine.includes('NAME OF')) {
@@ -352,7 +358,7 @@ export function extractPanFields(
         break;
       }
       if (i + 1 < rawLines.length) {
-        const nextLine = rawLines[i + 1].trim();
+        const nextLine = rawLines[i + 1].replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, '').trim();
         if (
           nextLine.length > 2 &&
           !panNoiseKeywords.some((k) => nextLine.toUpperCase().includes(k))
@@ -366,13 +372,17 @@ export function extractPanFields(
 
   if (!companyName) {
     for (const line of rawLines) {
-      const upper = line.toUpperCase();
+      const clean = line.replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, '').trim();
+      const upper = clean.toUpperCase();
+      const words = clean.split(/\s+/).filter((w) => w.length >= 3);
+
       if (
-        line.length >= 3 &&
-        /^[A-Za-z0-9\s.,&'()-]+$/.test(line) &&
+        clean.length >= 3 &&
+        words.length >= 1 &&
+        /^[A-Za-z0-9\s.,&'()-]+$/.test(clean) &&
         !panNoiseKeywords.some((k) => upper.includes(k))
       ) {
-        companyName = line;
+        companyName = clean;
         break;
       }
     }
@@ -418,6 +428,13 @@ export function calculateStringMatchScore(str1: string, str2: string): number {
   let intersection = 0;
   for (const t of tokens1) {
     if (tokens2.has(t)) intersection++;
+  }
+
+  if (intersection > 0) {
+    const minSize = Math.min(tokens1.size, tokens2.size);
+    if (intersection === minSize) {
+      return 0.9;
+    }
   }
 
   const union = new Set([...tokens1, ...tokens2]).size;

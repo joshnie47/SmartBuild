@@ -121,11 +121,21 @@ export interface ContractorDashboardStats {
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const { headers: extraHeaders, ...restOptions } = options ?? {};
+  const token = getToken();
+  const authHeaders: Record<string, string> = {};
+  if (token && !(extraHeaders as Record<string, string>)?.[ 'Authorization' ]) {
+    authHeaders['Authorization'] = `Bearer ${token}`;
+  }
+
   let res: Response;
   try {
     res = await fetch(`${BASE}${path}`, {
       ...restOptions,
-      headers: { 'Content-Type': 'application/json', ...extraHeaders },
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders,
+        ...extraHeaders,
+      },
     });
   } catch (err: unknown) {
     throw new Error('Unable to connect to the backend server (http://localhost:5000). Please ensure the backend server is running.');
@@ -304,23 +314,47 @@ export async function apiGetMyProjects(): Promise<ApiProject[]> {
 
 export const apiGetProjects = apiGetMyProjects;
 
-export async function apiGetAvailableProjectsFeed(): Promise<ApiProject[]> {
+export interface ProjectSearchParams {
+
+  q?: string;
+  title?: string;
+  category?: string;
+  location?: string;
+  minBudget?: number;
+  maxBudget?: number;
+  status?: string;
+  timeline?: string;
+}
+
+export async function apiGetAvailableProjectsFeed(params?: ProjectSearchParams): Promise<ApiProject[]> {
   const token = getToken();
   if (!token) throw new Error('Not authenticated.');
-  const data = await request<{ projects: ApiProject[] }>('/projects/feed', {
+  const queryParams = new URLSearchParams();
+  if (params) {
+    Object.entries(params).forEach(([key, val]) => {
+      if (val !== undefined && val !== null && val !== '') {
+        queryParams.append(key, String(val));
+      }
+    });
+  }
+  const qs = queryParams.toString() ? `?${queryParams.toString()}` : '';
+  const data = await request<{ projects: ApiProject[] }>(`/projects/search${qs}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   return data.projects;
 }
 
-export const apiGetProjectFeed = async (): Promise<{ projects: ApiProject[] }> => {
+export const apiSearchProjects = apiGetAvailableProjectsFeed;
+
+export const apiGetProjectFeed = async (params?: ProjectSearchParams): Promise<{ projects: ApiProject[] }> => {
   try {
-    const list = await apiGetAvailableProjectsFeed();
+    const list = await apiGetAvailableProjectsFeed(params);
     return { projects: list };
   } catch {
     return { projects: [] };
   }
 };
+
 
 export async function apiGetContractorMyProjects(): Promise<ApiProject[]> {
   const token = getToken();
@@ -659,10 +693,34 @@ export async function apiValidatePortfolioImage(image: string): Promise<{
   });
 }
 
-export async function apiGetContractors(): Promise<ApiContractor[]> {
-  const data = await request<{ contractors: ApiContractor[] }>('/contractors');
+export interface ContractorSearchParams {
+  q?: string;
+  name?: string;
+  companyName?: string;
+  specialization?: string;
+  location?: string;
+  minExperience?: number;
+  maxExperience?: number;
+  verifiedOnly?: boolean;
+  services?: string;
+}
+
+export async function apiGetContractors(params?: ContractorSearchParams): Promise<ApiContractor[]> {
+  const queryParams = new URLSearchParams();
+  if (params) {
+    Object.entries(params).forEach(([key, val]) => {
+      if (val !== undefined && val !== null && val !== '') {
+        queryParams.append(key, String(val));
+      }
+    });
+  }
+  const qs = queryParams.toString() ? `?${queryParams.toString()}` : '';
+  const data = await request<{ contractors: ApiContractor[] }>(`/contractors/search${qs}`);
   return data.contractors;
 }
+
+export const apiSearchContractors = apiGetContractors;
+
 
 export async function apiGetContractorProfileMe(): Promise<{
   profile: ApiContractorProfile | null;
@@ -916,6 +974,7 @@ export interface AdminContractorItem {
   aadhaarDocumentUrl?: string;
   companyPanDocumentUrl?: string;
   documentVerification?: any;
+  portfolioItems?: any[];
   isVerified: boolean;
   averageRating?: number;
   completedProjects?: number;
@@ -970,4 +1029,132 @@ export async function apiAdminGetStats(): Promise<{
   completedProjects: number;
 }> {
   return request('/admin/stats');
+}
+
+export interface AiValidationEvent {
+  id: string;
+  date: string;
+  time: string;
+  timestamp: string;
+  validationType: string;
+  userOrProjectRef: string;
+  aiOperation: string;
+  result: string;
+  status: 'Completed' | 'Needs Review' | 'Failed';
+  manualReviewRequired: boolean;
+  details: string;
+}
+
+export interface AiLogFileGroup {
+  date: string;
+  fileName: string;
+  eventCount: number;
+  events: AiValidationEvent[];
+}
+
+export interface AdminAiStats {
+  summary: {
+    totalAiChecks: number;
+    completed: number;
+    needsReview: number;
+    failed: number;
+  };
+  modelPerformance: {
+    aiImageDetection: {
+      hasGroundTruth: boolean;
+      metrics?: { accuracy: number; precision: number; recall: number; f1Score: number } | null;
+      message?: string;
+    };
+    documentVerification: {
+      hasGroundTruth: boolean;
+      metrics?: { accuracy: number; precision: number; recall: number; f1Score: number } | null;
+      message?: string;
+    };
+  };
+  logsByDate: AiLogFileGroup[];
+}
+
+export async function apiAdminGetAiStats(): Promise<AdminAiStats> {
+  return request('/admin/ai-stats');
+}
+
+// ── Disputes API Helpers ───────────────────────────────────────────────────
+
+export interface ApiDispute {
+  _id: string;
+  projectId: { _id: string; title: string; category?: string; budget?: number; location?: string } | string;
+  clientId: { _id: string; fullName: string; email?: string; phone?: string } | string;
+  contractorId: { _id: string; fullName: string; companyName?: string; email?: string; phone?: string } | string;
+  raisedBy?: { _id: string; fullName: string; role?: string; email?: string } | string;
+  title?: string;
+  issueCategory: string;
+  description: string;
+  evidenceUrls?: string[];
+  status: 'OPEN' | 'UNDER_REVIEW' | 'RESOLVED' | 'REJECTED' | 'CLOSED' | 'PENDING' | 'DISMISSED';
+  priority?: 'Low' | 'Medium' | 'High' | 'Urgent';
+  resolutionOutcome?: 'RESOLVED_CLIENT_FAVOR' | 'RESOLVED_CONTRACTOR_FAVOR' | 'MUTUALLY_RESOLVED' | 'REJECTED' | string;
+  adminResolutionNote?: string;
+  resolutionNotes?: string;
+  resolvedBy?: { _id: string; fullName: string; email?: string } | string;
+  resolvedAt?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export async function apiCreateDispute(data: {
+  projectId: string;
+  title?: string;
+  issueCategory: string;
+  description: string;
+  evidenceUrls?: string[];
+  priority?: string;
+}): Promise<{ message: string; dispute: ApiDispute }> {
+  return request('/reviews/disputes', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function apiGetProjectDisputes(projectId: string): Promise<{ disputes: ApiDispute[] }> {
+  return request(`/reviews/disputes/project/${projectId}`);
+}
+
+export async function apiGetAdminDisputes(): Promise<{ disputes: ApiDispute[] }> {
+  return request('/admin/disputes');
+}
+
+export async function apiUpdateDisputeStatus(disputeId: string, status: string): Promise<{ message: string; dispute: ApiDispute }> {
+  return request(`/admin/disputes/${disputeId}/status`, {
+    method: 'PUT',
+    body: JSON.stringify({ status }),
+  });
+}
+
+export async function apiResolveDispute(
+  disputeId: string,
+  data: { status: 'RESOLVED' | 'REJECTED'; resolutionOutcome: string; adminResolutionNote: string }
+): Promise<{ message: string; dispute: ApiDispute }> {
+  return request(`/admin/disputes/${disputeId}/resolve`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+// ── Profile API Helpers ───────────────────────────────────────────────────
+
+export async function apiUpdateUserProfile(data: {
+  fullName?: string;
+  profileImage?: string;
+  phone?: string;
+  email?: string;
+  specialization?: string;
+  experienceYears?: number;
+  city?: string;
+  serviceAreas?: string[];
+  isAvailable?: boolean;
+}): Promise<{ message: string; user?: any; profile?: any }> {
+  return request('/contractors/me/profile', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
 }
