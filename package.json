@@ -8,6 +8,8 @@
     "server": "npm --prefix server run dev",
     "dev:all": "concurrently -n \"frontend,backend\" -c \"cyan,magenta\" \"npm run dev\" \"npm run server\"",
     "build": "vite build",
+    "build:server": "npm --prefix server install && npm --prefix server run build",
+    "start": "node server/dist/index.js",
     "lint": "eslint .",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.app.json"

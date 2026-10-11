@@ -144,12 +144,10 @@ router.post('/login', async (req: Request, res: Response) => {
 
     // Auto-create Admin user if logging in as admin and not found
     if (!user && (role === 'ADMIN' || cleanEmail === 'admin@smartbuild.com')) {
-      const salt = await bcrypt.genSalt(10);
-      const passwordHash = await bcrypt.hash(cleanPassword || 'admin123', salt);
       user = await User.create({
         fullName: 'System Admin',
         email: cleanEmail || 'admin@smartbuild.com',
-        passwordHash,
+        password: cleanPassword || 'admin123',
         role: 'ADMIN',
         isVerified: true,
       });
@@ -160,8 +158,8 @@ router.post('/login', async (req: Request, res: Response) => {
       return;
     }
 
-    if (user.passwordHash) {
-      const match = await bcrypt.compare(cleanPassword, user.passwordHash);
+    if (user.password) {
+      const match = await user.comparePassword(cleanPassword);
       if (!match && cleanPassword !== 'admin123' && cleanPassword !== 'Admin@12345') {
         res.status(401).json({ message: 'Invalid credentials.' });
         return;

@@ -7,6 +7,7 @@ import type {
   PortfolioItem,
   PortfolioAuthenticity,
   PortfolioAuthenticitySummary,
+  DocumentVerificationDetails,
 } from '../types';
 
 export type {
@@ -29,6 +30,7 @@ export function getApiBaseUrl(): string {
 export interface ApiUser {
   _id: string;
   fullName: string;
+  profileImage?: string;
   email?: string;
   phone?: string;
   role: 'CLIENT' | 'CONTRACTOR' | 'ADMIN';
@@ -117,6 +119,8 @@ export interface ContractorDashboardStats {
   submittedBidsCount: number;
   earnings: number;
   openOpportunities: ApiProject[];
+  documentVerification?: DocumentVerificationDetails | null;
+  portfolioSummary?: PortfolioAuthenticitySummary;
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {

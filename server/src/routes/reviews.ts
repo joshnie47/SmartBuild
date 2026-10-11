@@ -155,9 +155,9 @@ router.post('/disputes', protect, async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    const contractorIdStr = typeof project.selectedContractorId === 'object' && project.selectedContractorId
-      ? (project.selectedContractorId as any)._id?.toString()
-      : project.selectedContractorId?.toString();
+    const contractorIdStr = project.selectedContractorId
+      ? project.selectedContractorId.toString()
+      : undefined;
 
     const isClient = project.clientId.toString() === req.userId;
     const isContractor = contractorIdStr === req.userId;

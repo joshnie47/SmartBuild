@@ -155,7 +155,7 @@ export function AdminDashboard({ onNavigate }: { onNavigate: (id: ScreenId) => v
 
   const handleDocVerifyAction = async (
     id: string,
-    verificationStatus: 'AUTOMATED_VERIFICATION_PASSED' | 'VERIFICATION_REQUIRED' | 'VERIFICATION_FAILED' | 'REJECTED',
+    verificationStatus: 'AUTOMATED_VERIFICATION_PASSED' | 'VERIFICATION_REQUIRED' | 'VERIFICATION_FAILED' | 'REJECTED' | 'VERIFIED',
     notes?: string
   ) => {
     try {

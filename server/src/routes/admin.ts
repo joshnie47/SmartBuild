@@ -586,7 +586,7 @@ router.put('/disputes/:id/resolve', async (req: AuthRequest, res: Response) => {
     const cleanNote = adminResolutionNote.trim();
     const cleanOutcome = resolutionOutcome || (status === 'REJECTED' ? 'REJECTED' : 'MUTUALLY_RESOLVED');
 
-    const adminId = req.userId ? new mongoose.Types.ObjectId(req.userId) : dispute?.clientId?._id || new mongoose.Types.ObjectId();
+    const adminId = req.userId ? new mongoose.Types.ObjectId(req.userId) : undefined;
 
     const updatedDispute = await Dispute.findByIdAndUpdate(
       id,

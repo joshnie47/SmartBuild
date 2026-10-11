@@ -252,17 +252,17 @@ export const getProjectsSearchHandler = async (req: AuthRequest, res: Response) 
     conditions.push({ clientId: { $exists: true, $ne: null } });
 
     // Status & Authorization filter
-    const isContractor = req.user && req.user.role === 'CONTRACTOR';
+    const isContractor = req.userRole === 'CONTRACTOR';
     if (statusTerm === 'IN_PROGRESS' || statusTerm === 'COMPLETED') {
-      if (isContractor) {
-        conditions.push({ status: statusTerm, assignedContractorId: req.user._id });
+      if (isContractor && req.userId) {
+        conditions.push({ status: statusTerm, assignedContractorId: req.userId });
       } else {
         conditions.push({ status: statusTerm });
       }
     } else if (statusTerm === 'ALL') {
-      if (isContractor) {
+      if (isContractor && req.userId) {
         conditions.push({
-          $or: [{ status: 'OPEN' }, { assignedContractorId: req.user._id }],
+          $or: [{ status: 'OPEN' }, { assignedContractorId: req.userId }],
         });
       }
     } else {
