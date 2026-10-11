@@ -6,9 +6,13 @@ import path from 'path';
 dotenv.config();
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
-// Force Google DNS to resolve MongoDB Atlas SRV records
-// (ISP DNS may block _mongodb._tcp SRV lookups)
-dns.setServers(['8.8.8.8', '8.8.4.4']);
+// Force Google DNS to resolve MongoDB Atlas SRV records when possible
+// (ISP DNS may block _mongodb._tcp SRV lookups; fall back gracefully in containers)
+try {
+  dns.setServers(['8.8.8.8', '8.8.4.4']);
+} catch {
+  // Use system default DNS resolvers
+}
 
 import { migrateVerificationStatus } from '../utils/migrateVerification';
 
