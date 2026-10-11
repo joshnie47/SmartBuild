@@ -3,16 +3,23 @@ import { getDBStatus } from '../config/db';
 
 const router = Router();
 
+router.get('/', (_req: Request, res: Response) => {
+  res.status(200).json({
+    status: 'ok',
+    message: 'SmartBuild API endpoints active',
+    timestamp: new Date().toISOString(),
+  });
+});
+
 router.get('/health', (_req: Request, res: Response) => {
   const db = getDBStatus();
 
-  res.status(db.connected ? 200 : 503).json({
-    status: db.connected ? 'ok' : 'error',
+  res.status(200).json({
+    status: 'ok',
     server: 'running',
     database: {
       connected: db.connected,
-      host: db.host,
-      name: db.dbName,
+      status: db.connected ? 'connected' : 'disconnected',
     },
     timestamp: new Date().toISOString(),
   });

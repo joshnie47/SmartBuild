@@ -7,7 +7,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { WebSocketServer } from 'ws';
-import { connectDB } from './config/db';
+import { connectDB, getDBStatus } from './config/db';
 import { createChatGateway } from './websocket/ChatGateway';
 import healthRouter from './routes/health';
 import authRouter from './routes/auth';
@@ -25,10 +25,31 @@ const PORT = Number(process.env.PORT) || 5000;
 app.use(cors());
 app.use(express.json());
 
+// Root welcome & status endpoint
+app.get('/', (_req, res) => {
+  const db = getDBStatus();
+  res.status(200).json({
+    status: 'ok',
+    message: 'SmartBuild Backend API is running',
+    version: '1.0.0',
+    database: {
+      connected: db.connected,
+      status: db.connected ? 'connected' : 'disconnected',
+    },
+    endpoints: {
+      health: '/health',
+      apiHealth: '/api/health',
+      api: '/api',
+    },
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // Routes
+app.use(healthRouter);
 app.use('/api', healthRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/projects', projectsRouter);

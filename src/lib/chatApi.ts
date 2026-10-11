@@ -1,6 +1,12 @@
 import { getToken } from './auth';
 
-const BASE = 'http://localhost:5000/api';
+const getApiBase = (): string => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (!envUrl) return 'http://localhost:5000/api';
+  return envUrl.endsWith('/api') ? envUrl : `${envUrl.replace(/\/+$/, '')}/api`;
+};
+
+const BASE = getApiBase();
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

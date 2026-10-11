@@ -1,6 +1,18 @@
 import { getToken } from './auth';
 
-const WS_URL = 'ws://localhost:5000';
+const getWebSocketUrl = (): string => {
+  if (import.meta.env.VITE_WS_URL) {
+    return import.meta.env.VITE_WS_URL;
+  }
+  if (import.meta.env.VITE_API_URL) {
+    const apiUrl = import.meta.env.VITE_API_URL;
+    const wsProto = apiUrl.startsWith('https') ? 'wss' : 'ws';
+    return apiUrl.replace(/^https?/, wsProto).replace(/\/api\/?$/, '');
+  }
+  return 'ws://localhost:5000';
+};
+
+const WS_URL = getWebSocketUrl();
 
 // ─── Event Types (mirroring the server's events.ts) ──────────────────────────
 

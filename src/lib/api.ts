@@ -20,7 +20,13 @@ export type {
   PortfolioAuthenticitySummary,
 };
 
-const BASE = 'http://localhost:5000/api';
+const getApiBase = (): string => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (!envUrl) return 'http://localhost:5000/api';
+  return envUrl.endsWith('/api') ? envUrl : `${envUrl.replace(/\/+$/, '')}/api`;
+};
+
+const BASE = getApiBase();
 
 export function getApiBaseUrl(): string {
   return BASE;
@@ -142,7 +148,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
       },
     });
   } catch (err: unknown) {
-    throw new Error('Unable to connect to the backend server (http://localhost:5000). Please ensure the backend server is running.');
+    throw new Error(`Unable to connect to the backend server (${BASE}). Please ensure the backend server is running.`);
   }
 
   let data: any;
@@ -583,7 +589,7 @@ export async function apiAnalyzePortfolioImage(file: File): Promise<{
   const formData = new FormData();
   formData.append('image', file);
 
-  const res = await fetch('http://localhost:5000/api/contractors/me/portfolio/analyze', {
+  const res = await fetch(`${BASE}/contractors/me/portfolio/analyze`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -641,7 +647,7 @@ export async function apiReplacePortfolioImage(payload: {
   formData.append('image', payload.file);
   formData.append('oldImageUrl', payload.oldImageUrl);
 
-  const res = await fetch('http://localhost:5000/api/contractors/me/portfolio/replace', {
+  const res = await fetch(`${BASE}/contractors/me/portfolio/replace`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
