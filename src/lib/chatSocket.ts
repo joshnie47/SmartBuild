@@ -23,7 +23,15 @@ export interface MessageCreatedEvent {
     conversationId: string;
     senderId: string;
     clientMessageId: string;
+    messageType?: 'text' | 'image' | 'document';
     body: string;
+    attachment?: {
+      fileId: string;
+      filename: string;
+      mimeType: string;
+      fileSize: number;
+      url?: string;
+    };
     status: string;
     createdAt: string;
   };
@@ -33,6 +41,12 @@ export interface MessageReadEvent {
   type: 'message.read';
   conversationId: string;
   userId: string;
+  messageId: string;
+}
+
+export interface MessageDeletedEvent {
+  type: 'message.deleted';
+  conversationId: string;
   messageId: string;
 }
 
@@ -56,6 +70,7 @@ export interface ErrorEvent {
 export type ServerEvent =
   | MessageCreatedEvent
   | MessageReadEvent
+  | MessageDeletedEvent
   | TypingEvent
   | PresenceEvent
   | ErrorEvent;

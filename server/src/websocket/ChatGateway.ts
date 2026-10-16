@@ -112,7 +112,17 @@ async function handleMessageSend(
       conversationId,
       senderId: userId,
       clientMessageId,
+      messageType: message.messageType || 'text',
       body: message.body,
+      attachment: message.attachment
+        ? {
+            fileId: message.attachment.fileId.toString(),
+            filename: message.attachment.filename,
+            mimeType: message.attachment.mimeType,
+            fileSize: message.attachment.fileSize,
+            url: `/api/conversations/${conversationId}/attachments/${message.attachment.fileId.toString()}`,
+          }
+        : undefined,
       status: message.status,
       createdAt: message.createdAt.toISOString(),
     },

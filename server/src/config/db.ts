@@ -5,6 +5,7 @@ import path from 'path';
 
 dotenv.config();
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../../server/.env') });
 
 // Force Google DNS to resolve MongoDB Atlas SRV records when possible
 // (ISP DNS may block _mongodb._tcp SRV lookups; fall back gracefully in containers)
@@ -25,10 +26,12 @@ export async function connectDB(): Promise<void> {
     console.log(`   Host: ${mongoose.connection.host}`);
     console.log(`   Database: ${mongoose.connection.name}`);
     console.log(`====================================`);
-    await migrateVerificationStatus();
+    // Run verification migration in background so connection unblocks immediately
+    migrateVerificationStatus().catch((err) => {
+      console.error('[Migration] Verification migration error:', err);
+    });
   } catch (error) {
     console.error('❌ MongoDB connection error:', error);
-    process.exit(1);
   }
 }
 

@@ -145,3 +145,50 @@ export async function updateLastMessage(
     }
   );
 }
+
+/**
+ * When a message is deleted, re-synchronizes the denormalized lastMessage
+ * to point to the most recent non-deleted message in the conversation.
+ */
+export async function syncLastMessageOnDelete(conversationId: string): Promise<void> {
+  const latestMessage = await Message.findOne({
+    conversationId: new mongoose.Types.ObjectId(conversationId),
+    deletedAt: null,
+  })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  if (latestMessage) {
+    let previewText = latestMessage.body;
+    if (!previewText) {
+      if (latestMessage.messageType === 'image') {
+        const count = latestMessage.attachments?.length || 1;
+        previewText = count > 1 ? `📷 ${count} Images` : '📷 Image';
+      } else if (latestMessage.messageType === 'document') {
+        previewText = `📄 ${latestMessage.attachment?.filename || 'Document'}`;
+      } else {
+        previewText = 'Attachment';
+      }
+    }
+    await Conversation.updateOne(
+      { _id: new mongoose.Types.ObjectId(conversationId) },
+      {
+        $set: {
+          lastMessage: {
+            body: previewText,
+            senderId: latestMessage.senderId,
+            createdAt: latestMessage.createdAt,
+          },
+        },
+      }
+    );
+  } else {
+    // No active messages remain
+    await Conversation.updateOne(
+      { _id: new mongoose.Types.ObjectId(conversationId) },
+      {
+        $unset: { lastMessage: 1 },
+      }
+    );
+  }
+}

@@ -1,11 +1,22 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import path from 'path';
+
+// Load .env from process CWD and fallback to server directory
+dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../../server/.env') });
+
 import dns from 'dns';
 // Force IPv4-first globally — fixes ENETUNREACH errors on networks without IPv6
 dns.setDefaultResultOrder('ipv4first');
+try {
+  dns.setServers(['8.8.8.8', '8.8.4.4']);
+} catch {
+  // Use system default DNS
+}
 import http from 'http';
 import express from 'express';
 import cors from 'cors';
-import path from 'path';
 import { WebSocketServer } from 'ws';
 import { connectDB, getDBStatus } from './config/db';
 import { createChatGateway } from './websocket/ChatGateway';
@@ -69,10 +80,14 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 createChatGateway(wss);
 
-// Start server after DB connects
-connectDB().then(() => {
-  server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on port ${PORT}`);
-    console.log(`WebSocket running on port ${PORT}`);
-  });
+// Start HTTP server immediately so /api/health and all endpoints are responsive
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`WebSocket running on port ${PORT}`);
 });
+
+// Connect to MongoDB Atlas asynchronously in the background
+connectDB().catch((err) => {
+  console.error('❌ Failed to initialize MongoDB connection:', err);
+});
+
