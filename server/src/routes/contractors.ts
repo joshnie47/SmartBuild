@@ -54,10 +54,9 @@ function saveBufferToUploads(buffer: Buffer, originalname: string): { filename: 
   const uniqueName = `portfolio-${Date.now()}-${Math.round(Math.random() * 1e6)}${ext}`;
   const filePath = path.join(UPLOADS_DIR, uniqueName);
   fs.writeFileSync(filePath, buffer);
-  const port = process.env.PORT || 5000;
   return {
     filename: uniqueName,
-    url: `http://localhost:${port}/uploads/${uniqueName}`,
+    url: `/uploads/${uniqueName}`,
   };
 }
 

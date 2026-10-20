@@ -11,7 +11,7 @@ import {
   apiUpdateMilestone,
   apiFlagDelay,
   apiValidateProjectEvidence,
-  getApiBaseUrl,
+  resolveImageUrl,
   type ApiProject,
   type ApiEvidenceValidationResult,
   type ApiEvidenceItem,
@@ -33,13 +33,6 @@ export interface EvidenceQueueItem {
   status: 'validating' | 'verified' | 'ai_detected' | 'error';
   validationResult?: ApiEvidenceValidationResult;
   errorMessage?: string;
-}
-
-function resolveImageUrl(url?: string): string {
-  if (!url) return '';
-  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
-  const baseUrl = getApiBaseUrl().replace(/\/api\/?$/, '');
-  return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
 export function ProjectUpdate({ onNavigate, projectId }: { onNavigate: (id: ScreenId, projectId?: string) => void; projectId?: string }) {

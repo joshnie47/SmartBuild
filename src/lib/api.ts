@@ -32,6 +32,29 @@ export function getApiBaseUrl(): string {
   return BASE;
 }
 
+export function resolveImageUrl(url?: string): string {
+  if (!url) return '';
+  if (url.startsWith('data:')) return url;
+
+  const baseUrl = getApiBaseUrl().replace(/\/api\/?$/, '');
+
+  // 1. If it's a localhost or 127.0.0.1 URL stored in DB, rewrite to active backend
+  if (url.includes('localhost:') || url.includes('127.0.0.1:')) {
+    const uploadIndex = url.indexOf('/uploads/');
+    if (uploadIndex !== -1) {
+      return `${baseUrl}${url.substring(uploadIndex)}`;
+    }
+  }
+
+  // 2. If it's already an external absolute URL (e.g. pexels, cloudinary, or production backend)
+  if (url.startsWith('https://') || (url.startsWith('http://') && !url.includes('localhost'))) {
+    return url;
+  }
+
+  // 3. If it's a relative path (/uploads/...) or un-prefixed
+  return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
 
 export interface ApiUser {
   _id: string;

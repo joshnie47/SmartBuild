@@ -4,7 +4,7 @@ import { TopNav } from '../components/TopNav';
 import type { ScreenId, Milestone, ProjectEvidenceItem } from '../types';
 import { useLocale } from '../i18n/LocaleContext';
 import { t } from '../i18n';
-import { apiGetProjects, apiGetProjectById, getApiBaseUrl, type ApiProject } from '../lib/api';
+import { apiGetProjects, apiGetProjectById, resolveImageUrl, type ApiProject } from '../lib/api';
 
 const defaultFallbackMilestones: Milestone[] = [
   { id: 'm1', label: 'Site Inspection & Setup', status: 'current', timestamp: 'Initial Stage', note: 'Project initialized. Preparing for site work.' },
@@ -13,13 +13,6 @@ const defaultFallbackMilestones: Milestone[] = [
   { id: 'm4', label: 'Finishing & Inspection', status: 'upcoming' },
   { id: 'm5', label: 'Final Handover', status: 'upcoming' },
 ];
-
-function resolveImageUrl(url?: string): string {
-  if (!url) return '';
-  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
-  const baseUrl = getApiBaseUrl().replace(/\/api\/?$/, '');
-  return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
-}
 
 export function ProjectTracking({ onNavigate, projectId }: { onNavigate: (id: ScreenId, projectId?: string) => void; projectId?: string }) {
   const { locale } = useLocale();
@@ -267,6 +260,10 @@ export function ProjectTracking({ onNavigate, projectId }: { onNavigate: (id: Sc
                                       <img
                                         src={photoUrl}
                                         alt={`${m.label} evidence photo ${pIdx + 1}`}
+                                        onError={(e) => {
+                                          (e.target as HTMLImageElement).src =
+                                            'https://images.pexels.com/photos/159306/construction-site-build-construction-work-159306.jpeg?auto=compress&cs=tinysrgb&w=600';
+                                        }}
                                         className="h-28 w-full object-cover group-hover:scale-105 transition-transform duration-300"
                                       />
                                       <div className="absolute top-1.5 left-1.5 flex items-center gap-1 rounded-full bg-emerald-600/90 backdrop-blur-md px-2 py-0.5 text-[10px] font-bold text-white shadow-xs">
@@ -346,6 +343,10 @@ export function ProjectTracking({ onNavigate, projectId }: { onNavigate: (id: Sc
               <img
                 src={selectedPhoto.url}
                 alt={selectedPhoto.label}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src =
+                    'https://images.pexels.com/photos/159306/construction-site-build-construction-work-159306.jpeg?auto=compress&cs=tinysrgb&w=1200';
+                }}
                 className="max-h-[70vh] w-auto max-w-full object-contain"
               />
             </div>

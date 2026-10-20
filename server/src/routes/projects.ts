@@ -82,10 +82,9 @@ function saveEvidenceBufferToUploads(buffer: Buffer, originalname: string): { fi
   const uniqueName = `evidence-${Date.now()}-${Math.round(Math.random() * 1e6)}${ext}`;
   const filePath = path.join(UPLOADS_DIR, uniqueName);
   fs.writeFileSync(filePath, buffer);
-  const port = process.env.PORT || 5000;
   return {
     filename: uniqueName,
-    url: `http://localhost:${port}/uploads/${uniqueName}`,
+    url: `/uploads/${uniqueName}`,
   };
 }
 
@@ -135,8 +134,8 @@ router.post('/upload', protect, (req: AuthRequest, res: Response) => {
       }
     }
 
-    const imageUrls = imageFiles.map((f) => `${BASE_URL}/uploads/${f.filename}`);
-    const pdfUrl    = pdfFiles[0] ? `${BASE_URL}/uploads/${pdfFiles[0].filename}` : null;
+    const imageUrls = imageFiles.map((f) => `/uploads/${f.filename}`);
+    const pdfUrl    = pdfFiles[0] ? `/uploads/${pdfFiles[0].filename}` : null;
 
     res.json({ imageUrls, pdfUrl });
   });
