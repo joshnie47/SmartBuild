@@ -291,7 +291,7 @@ export async function calculateContractorRecommendations(
 
       quotedPrice: Math.round((project.budget || 25000) * 0.95),
       timeline: project.timeline || '2-3 weeks',
-      photo: p.profileImage || 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=150',
+      photo: (p.profileImage && !p.profileImage.includes('220453')) ? p.profileImage : '',
       portfolioItems: p.portfolioItems || [],
       portfolioAuthenticity: {
         status: 'ALL_REAL',

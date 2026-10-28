@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Check, MapPin, BadgeCheck, Eye, GitCompare, ArrowLeft, Trophy, Loader2, Clock, Bell, Send, ShieldCheck, Sparkles, CheckCircle2, Image as ImageIcon, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 import { TopNav } from '../components/TopNav';
-import { StarRating } from '../components/ui';
+import { StarRating, Avatar } from '../components/ui';
 import type { ScreenId, Contractor, PortfolioItem, PortfolioAuthenticitySummary } from '../types';
 import { useLocale } from '../i18n/LocaleContext';
 import { t } from '../i18n';
@@ -87,7 +87,7 @@ export function ContractorResults({
                 ],
                 status: b.status,
                 proposalMessage: b.proposalMessage,
-                photo: matchedRec?.photo || 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=200',
+                photo: (matchedRec?.photo && !matchedRec.photo.includes('220453')) ? matchedRec.photo : (matchedRec?.profileImage || ''),
                 portfolioItems: matchedRec?.portfolioItems || [],
                 portfolioAuthenticity: matchedRec?.portfolioAuthenticity || {
                   status: 'ALL_REAL',
@@ -285,11 +285,7 @@ export function ContractorResults({
                   )}
 
                   <div className="flex items-start gap-4">
-                    <img
-                      src={c.photo}
-                      alt={c.name}
-                      className="h-14 w-14 rounded-full object-cover shrink-0 border border-gray-200"
-                    />
+                    <Avatar src={c.photo} alt={c.name} size="xl" />
                     <div className="flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-semibold text-navy-700 text-base">{c.name}</span>
@@ -555,7 +551,7 @@ function CompareView({
                 {contractors.map((c) => (
                   <th key={c.id} className="p-4 text-center">
                     <div className="flex flex-col items-center gap-2">
-                      <img src={c.photo} alt={c.name} className="h-12 w-12 rounded-full object-cover" />
+                      <Avatar src={c.photo} alt={c.name} size="lg" />
                       <span className="font-semibold text-navy-700">{c.name}</span>
                     </div>
                   </th>

@@ -4,7 +4,7 @@ export const contractors: Contractor[] = [
   {
     id: 'c1',
     name: 'Rajesh Kumar',
-    photo: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=150',
+    photo: '',
     rating: 4.8,
     reviews: 127,
     specialization: 'Plumbing',
@@ -18,7 +18,7 @@ export const contractors: Contractor[] = [
   {
     id: 'c2',
     name: 'Priya Sharma',
-    photo: 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=150',
+    photo: '',
     rating: 4.9,
     reviews: 203,
     specialization: 'Plumbing & Sanitary',
@@ -32,7 +32,7 @@ export const contractors: Contractor[] = [
   {
     id: 'c3',
     name: 'Mohammed Ali',
-    photo: 'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=150',
+    photo: '',
     rating: 4.6,
     reviews: 89,
     specialization: 'Plumbing',
@@ -46,7 +46,7 @@ export const contractors: Contractor[] = [
   {
     id: 'c4',
     name: 'Anita Verma',
-    photo: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=150',
+    photo: '',
     rating: 4.7,
     reviews: 156,
     specialization: 'Plumbing & Drainage',

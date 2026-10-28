@@ -559,13 +559,6 @@ export function ContractorOnboarding({ onNavigate }: { onNavigate: (id: ScreenId
                     >
                       Choose Photo
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setProfilePhoto('https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=300')}
-                      className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
-                    >
-                      Use Sample
-                    </button>
                     {profilePhoto && (
                       <button
                         type="button"

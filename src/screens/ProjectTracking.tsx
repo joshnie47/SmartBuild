@@ -83,7 +83,6 @@ export function ProjectTracking({ onNavigate, projectId }: { onNavigate: (id: Sc
     <div className="min-h-screen bg-white">
       <TopNav
         avatarName="Client"
-        avatarSrc="https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=150"
         onNavigate={onNavigate}
       />
       <div className="mx-auto max-w-xl px-4 py-6 md:px-6 md:py-8">

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { BadgeCheck, Camera, Edit3, Plus, MapPin, Users, Loader2, Save, X, Upload, Sparkles, Trash2, Info, ShieldCheck, CheckCircle2, ShieldAlert, AlertTriangle } from 'lucide-react';
 import { TopNav } from '../components/TopNav';
-import { StarRating, ToggleSwitch } from '../components/ui';
+import { StarRating, ToggleSwitch, Avatar } from '../components/ui';
 import type { ScreenId, PortfolioItem, PortfolioAuthenticity, UploadBatchItem, DocumentVerificationDetails } from '../types';
 import { useLocale } from '../i18n/LocaleContext';
 import { t } from '../i18n';
@@ -204,7 +204,8 @@ export function ContractorProfile({ onNavigate }: { onNavigate: (id: ScreenId) =
       if (res.profile) {
         const p = res.profile;
         setBusinessName(p.businessName || '');
-        setProfileImage(p.profileImage || '');
+        const cleanProfileImg = (p.profileImage && !p.profileImage.includes('220453')) ? p.profileImage : '';
+        setProfileImage(cleanProfileImg);
         setPrimaryTrade(p.primaryTrade || 'Civil Construction');
         setSpecializations(p.specializations?.length ? p.specializations : [p.primaryTrade || 'Civil Construction']);
         setExperienceYears(p.experienceYears || 0);
@@ -631,7 +632,7 @@ export function ContractorProfile({ onNavigate }: { onNavigate: (id: ScreenId) =
         <div className="flex items-start gap-4">
           <div className="relative group shrink-0">
             <input ref={avatarFileInputRef} type="file" accept="image/*" onChange={handleAvatarFileUpload} className="hidden" />
-            {profileImage ? (
+            {profileImage && !profileImage.includes('220453') ? (
               <div className="relative">
                 <img src={profileImage} alt={fullName} onClick={() => avatarFileInputRef.current?.click()} className="h-20 w-20 rounded-full object-cover border-2 border-white shadow-md cursor-pointer group-hover:opacity-90 transition-opacity" />
                 <button type="button" onClick={handleRemoveAvatar} title="Remove profile picture" className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-white shadow-md hover:bg-red-700">
@@ -639,8 +640,8 @@ export function ContractorProfile({ onNavigate }: { onNavigate: (id: ScreenId) =
                 </button>
               </div>
             ) : (
-              <div onClick={() => avatarFileInputRef.current?.click()} className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-full bg-navy-600 text-2xl font-bold text-white shadow-md hover:bg-navy-700 transition-colors">
-                {fullName && fullName.trim() ? fullName.trim()[0].toUpperCase() : 'C'}
+              <div onClick={() => avatarFileInputRef.current?.click()} className="cursor-pointer group-hover:opacity-90 transition-opacity">
+                <Avatar src="" alt={fullName || 'Contractor'} size="2xl" className="border-2 border-white shadow-md" />
               </div>
             )}
             <button type="button" onClick={() => avatarFileInputRef.current?.click()} title="Change photo" className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-amber-400 text-navy-900 shadow-md hover:bg-amber-300">

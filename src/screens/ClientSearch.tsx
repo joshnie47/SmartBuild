@@ -17,6 +17,7 @@ import {
   Info,
 } from 'lucide-react';
 import { TopNav } from '../components/TopNav';
+import { Avatar } from '../components/ui';
 import type { ScreenId, PortfolioItem, PortfolioAuthenticitySummary } from '../types';
 import { useLocale } from '../i18n/LocaleContext';
 import { t } from '../i18n';
@@ -362,10 +363,10 @@ export function ClientSearch({
                   <div>
                     {/* Top Row: Avatar + Name + Verification */}
                     <div className="flex items-start gap-3.5">
-                      <img
-                        src={c.profileImage || (c as any).photo || 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=200'}
+                      <Avatar
+                        src={c.profileImage || (c as any).photo}
                         alt={c.fullName}
-                        className="h-14 w-14 rounded-xl object-cover border border-gray-100 shrink-0"
+                        size="xl"
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-1.5">
@@ -478,14 +479,10 @@ export function ClientSearch({
 
             {/* Profile Header */}
             <div className="flex items-start gap-4">
-              <img
-                src={
-                  selectedContractor.profileImage ||
-                  (selectedContractor as any).photo ||
-                  'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=200'
-                }
+              <Avatar
+                src={selectedContractor.profileImage || (selectedContractor as any).photo}
                 alt={selectedContractor.fullName}
-                className="h-20 w-20 rounded-2xl object-cover border border-gray-100 shadow-soft"
+                size="2xl"
               />
               <div>
                 <div className="flex items-center gap-2">

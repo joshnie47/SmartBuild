@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { X } from 'lucide-react';
 
 export function Modal({
@@ -59,15 +60,81 @@ export function StarRating({ rating, size = 'sm' }: { rating: number; size?: 'sm
   );
 }
 
-export function Avatar({ src, alt, size = 'md' }: { src?: string; alt: string; size?: 'sm' | 'md' | 'lg' }) {
-  const sz = size === 'sm' ? 'h-8 w-8' : size === 'lg' ? 'h-12 w-12' : 'h-10 w-10';
-  if (src && src.trim()) {
-    return <img src={src} alt={alt} className={`${sz} rounded-full object-cover shadow-xs`} />;
+const AVATAR_GRADIENTS = [
+  'bg-linear-to-tr from-blue-600 to-indigo-600 text-white',
+  'bg-linear-to-tr from-emerald-600 to-teal-600 text-white',
+  'bg-linear-to-tr from-violet-600 to-purple-600 text-white',
+  'bg-linear-to-tr from-amber-500 to-orange-600 text-white',
+  'bg-linear-to-tr from-rose-500 to-pink-600 text-white',
+  'bg-linear-to-tr from-cyan-600 to-blue-600 text-white',
+  'bg-linear-to-tr from-fuchsia-600 to-rose-600 text-white',
+  'bg-linear-to-tr from-teal-600 to-emerald-600 text-white',
+  'bg-linear-to-tr from-indigo-600 to-purple-700 text-white',
+  'bg-linear-to-tr from-sky-600 to-blue-700 text-white',
+];
+
+export function getAvatarColor(name: string): string {
+  if (!name) return 'bg-navy-700 text-white';
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
   }
+  const index = Math.abs(hash) % AVATAR_GRADIENTS.length;
+  return AVATAR_GRADIENTS[index];
+}
+
+export function Avatar({
+  src,
+  alt,
+  size = 'md',
+  className = '',
+}: {
+  src?: string;
+  alt: string;
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  className?: string;
+}) {
+  const sz =
+    size === 'xs'
+      ? 'h-7 w-7 text-xs'
+      : size === 'sm'
+      ? 'h-8 w-8 text-xs'
+      : size === 'lg'
+      ? 'h-12 w-12 text-base'
+      : size === 'xl'
+      ? 'h-14 w-14 text-lg font-bold'
+      : size === '2xl'
+      ? 'h-20 w-20 text-2xl font-bold'
+      : 'h-10 w-10 text-sm font-semibold';
+
   const cleanAlt = (alt || '').trim();
   const initial = cleanAlt ? cleanAlt[0].toUpperCase() : 'U';
+  const isDefaultStockPhoto = src
+    ? src.includes('220453') ||
+      src.includes('pexels-photo-220453') ||
+      src.includes('pexels-photo-774909') ||
+      src.includes('avatar-placeholder')
+    : false;
+
+  const [imgError, setImgError] = useState(false);
+
+  if (src && src.trim() && !isDefaultStockPhoto && !imgError) {
+    return (
+      <img
+        src={src}
+        alt={cleanAlt}
+        onError={() => setImgError(true)}
+        className={`${sz} rounded-full object-cover shadow-xs border border-slate-200/80 shrink-0 ${className}`}
+      />
+    );
+  }
+
+  const colorClass = getAvatarColor(cleanAlt);
   return (
-    <div className={`${sz} flex shrink-0 items-center justify-center rounded-full bg-navy-600 text-sm font-bold text-white shadow-xs`}>
+    <div
+      className={`${sz} flex shrink-0 items-center justify-center rounded-full shadow-xs border border-white/20 select-none ${colorClass} ${className}`}
+      title={cleanAlt}
+    >
       {initial}
     </div>
   );
