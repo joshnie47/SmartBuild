@@ -23,7 +23,7 @@ export interface MessageCreatedEvent {
     conversationId: string;
     senderId: string;
     clientMessageId: string;
-    messageType?: 'text' | 'image' | 'document';
+    messageType?: 'text' | 'image' | 'document' | 'audio';
     body: string;
     attachment?: {
       fileId: string;

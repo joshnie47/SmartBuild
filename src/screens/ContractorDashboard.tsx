@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { IndianRupee, Briefcase, Star, CheckCircle2, QrCode, MapPin, ArrowRight, Upload, ShieldAlert, BadgeCheck, Loader2, Search } from 'lucide-react';
+import { IndianRupee, Briefcase, Star, CheckCircle2, QrCode, MapPin, ArrowRight, Upload, ShieldAlert, BadgeCheck, Loader2, Search, Scale } from 'lucide-react';
 
 import { TopNav } from '../components/TopNav';
 import type { ScreenId } from '../types';
@@ -118,6 +118,12 @@ export function ContractorDashboard({
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => onNavigate('review-dispute')}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-bold text-navy-800 hover:bg-slate-50 transition-all shadow-xs"
+            >
+              <Scale className="h-3.5 w-3.5 text-amber-600" /> Dispute Center
+            </button>
             <button
               onClick={() => onNavigate('contractor-search')}
               className="flex items-center gap-1.5 rounded-lg bg-amber-400 px-3.5 py-1.5 text-xs font-bold text-navy-700 shadow-soft hover:bg-amber-300 transition-all"
@@ -315,12 +321,20 @@ export function ContractorDashboard({
                       </p>
 
                       {isAccepted && (
-                        <button
-                          onClick={() => onNavigate('project-update', typeof bid.projectId === 'object' && bid.projectId ? bid.projectId._id : String(bid.projectId))}
-                          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700"
-                        >
-                          Update Milestones
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => onNavigate('review-dispute', typeof bid.projectId === 'object' && bid.projectId ? bid.projectId._id : String(bid.projectId))}
+                            className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-1"
+                          >
+                            <Scale className="h-3.5 w-3.5 text-amber-600" /> Dispute Center
+                          </button>
+                          <button
+                            onClick={() => onNavigate('project-update', typeof bid.projectId === 'object' && bid.projectId ? bid.projectId._id : String(bid.projectId))}
+                            className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700"
+                          >
+                            Update Milestones
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>

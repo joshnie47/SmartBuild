@@ -86,8 +86,20 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`WebSocket running on port ${PORT}`);
 });
 
+import { checkAndApplyAutoResolutions } from './services/disputeService';
+
 // Connect to MongoDB Atlas asynchronously in the background
-connectDB().catch((err) => {
-  console.error('❌ Failed to initialize MongoDB connection:', err);
-});
+connectDB()
+  .then(() => {
+    // Start automated 72-hour dispute resolution daemon (every 60 seconds)
+    setInterval(() => {
+      checkAndApplyAutoResolutions().catch((err) => {
+        console.error('Error running 72h dispute auto-resolution check:', err);
+      });
+    }, 60 * 1000);
+  })
+  .catch((err) => {
+    console.error('❌ Failed to initialize MongoDB connection:', err);
+  });
+
 

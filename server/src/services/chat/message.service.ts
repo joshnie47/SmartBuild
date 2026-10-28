@@ -104,11 +104,15 @@ export async function createMessage(input: CreateMessageInput): Promise<IMessage
       lastMessageText = count > 1 ? `📷 ${count} Images` : '📷 Image';
     } else if (messageType === 'document') {
       lastMessageText = `📄 ${primaryAttachment?.filename || 'Document'}`;
+    } else if (messageType === 'audio') {
+      lastMessageText = '🎤 Voice message';
     }
   } else if (messageType === 'image') {
     lastMessageText = `📷 ${trimmedBody}`;
   } else if (messageType === 'document') {
     lastMessageText = `📄 ${trimmedBody}`;
+  } else if (messageType === 'audio') {
+    lastMessageText = `🎤 ${trimmedBody}`;
   }
 
   // Keep the denormalized lastMessage on the conversation in sync
@@ -143,6 +147,11 @@ export async function createMessage(input: CreateMessageInput): Promise<IMessage
         notificationSnippet = attachment?.filename
           ? `Sent "${attachment.filename}"`
           : 'Sent a document attachment';
+      } else if (messageType === 'audio') {
+        notificationTitle = `${roleLabel} sent a voice message`;
+        notificationSnippet = trimmedBody
+          ? `Voice message: "${trimmedBody.length > 50 ? trimmedBody.slice(0, 50) + '...' : trimmedBody}"`
+          : 'Sent a voice message';
       } else {
         const snippet = trimmedBody.length > 60 ? `${trimmedBody.slice(0, 60)}...` : trimmedBody;
         notificationTitle = `New message from ${senderName}`;

@@ -610,6 +610,21 @@ export function ProjectUpdate({ onNavigate, projectId }: { onNavigate: (id: Scre
               )}
             </div>
 
+            {/* Dispute Center Action */}
+            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/60 p-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-xs text-amber-900">
+                <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                <span>Having a payment stall, scope creep, or site access issue?</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => onNavigate('review-dispute', project?._id)}
+                className="shrink-0 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-600 shadow-xs"
+              >
+                Open Dispute Center ⚖️
+              </button>
+            </div>
+
             {/* Stepper overview */}
             <div className="mt-8">
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">

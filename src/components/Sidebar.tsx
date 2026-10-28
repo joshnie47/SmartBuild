@@ -26,6 +26,7 @@ const contractorNav: NavItem[] = [
   { id: 'contractor-search', labelKey: 'navOpportunities', icon: Search },
   { id: 'submit-quote', labelKey: 'navSubmitQuote', icon: FileText },
   { id: 'project-update', labelKey: 'navProjectUpdates', icon: ClipboardList },
+  { id: 'review-dispute', labelKey: 'navReviews', icon: Star },
   { id: 'contractor-profile', labelKey: 'navMyProfile', icon: User },
   { id: 'chat', labelKey: 'navMessages', icon: MessageSquare },
 ];

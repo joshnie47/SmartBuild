@@ -1,7 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export type MessageStatus = 'sent' | 'delivered' | 'read';
-export type MessageType = 'text' | 'image' | 'document';
+export type MessageType = 'text' | 'image' | 'document' | 'audio';
 
 export interface IAttachmentMeta {
   fileId: mongoose.Types.ObjectId;       // GridFS file ID in chatAttachments bucket
@@ -70,7 +70,7 @@ const MessageSchema = new Schema<IMessage>(
     },
     messageType: {
       type: String,
-      enum: ['text', 'image', 'document'],
+      enum: ['text', 'image', 'document', 'audio'],
       default: 'text',
       index: true,
     },

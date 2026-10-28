@@ -448,6 +448,14 @@ export const translations = {
     online: 'Online',
     viewProjectProgress: 'View Project Progress',
     typeMessage: 'Type a message...',
+    voiceMessage: 'Voice message',
+    recordVoice: 'Record voice message',
+    recording: 'Recording...',
+    stopRecording: 'Stop recording',
+    cancelRecording: 'Cancel',
+    sendVoiceMessage: 'Send voice message',
+    listeningPreview: 'Preview voice note',
+    micAccessDenied: 'Microphone access denied. Please allow microphone permissions in your browser.',
 
     // Admin Dashboard
     adminDashboardTitle: 'Admin Control Center',
@@ -1077,6 +1085,14 @@ export const translations = {
     online: 'ஆன்லைனில் உள்ளார்',
     viewProjectProgress: 'திட்ட முன்னேற்றத்தைக் காண்க',
     typeMessage: 'செய்தியை உள்ளிடவும்...',
+    voiceMessage: 'குரல் செய்தி',
+    recordVoice: 'குரல் செய்தியைப் பதிவு செய்',
+    recording: 'பதிவாகிறது...',
+    stopRecording: 'பதிவை நிறுத்து',
+    cancelRecording: 'ரத்து செய்',
+    sendVoiceMessage: 'குரல் செய்தியை அனுப்பு',
+    listeningPreview: 'குரல் முன்னோட்டம்',
+    micAccessDenied: 'மைக்ரோஃபோன் அனுமதி மறுக்கப்பட்டது. உங்கள் உலாவியில் மைக்ரோஃபோன் அனுமதியை இயக்கவும்.',
 
     // Admin Dashboard
     adminDashboardTitle: 'நிர்வாக கட்டுப்பாட்டு மையம்',
@@ -1703,6 +1719,14 @@ export const translations = {
     online: 'ऑनलाइन',
     viewProjectProgress: 'परियोजना प्रगति देखें',
     typeMessage: 'संदेश टाइप करें...',
+    voiceMessage: 'वॉइस संदेश',
+    recordVoice: 'वॉइस संदेश रिकॉर्ड करें',
+    recording: 'रिकॉर्डिंग चालू है...',
+    stopRecording: 'रिकॉर्डिंग रोकें',
+    cancelRecording: 'रद्द करें',
+    sendVoiceMessage: 'वॉइस संदेश भेजें',
+    listeningPreview: 'वॉइस पूर्वावलोकन',
+    micAccessDenied: 'माइक्रोफ़ोन अनुमति अस्वीकृत। कृपया अपने ब्राउज़र में माइक्रोफ़ोन अनुमति दें।',
 
     // Admin Dashboard
     adminDashboardTitle: 'एडमिन नियंत्रण केंद्र',

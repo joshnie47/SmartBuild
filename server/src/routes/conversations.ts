@@ -274,7 +274,7 @@ router.post(
           file: Express.Multer.File;
           safeFilename: string;
           mimeType: string;
-          category: 'image' | 'document';
+          category: 'image' | 'document' | 'audio';
         }> = [];
 
         for (const file of rawFiles) {
@@ -301,8 +301,9 @@ router.post(
 
         const imageFiles = validatedList.filter((v) => v.category === 'image');
         const documentFiles = validatedList.filter((v) => v.category === 'document');
+        const audioFiles = validatedList.filter((v) => v.category === 'audio');
 
-        // Enforce limits: max 5 images, max 1 document
+        // Enforce limits: max 5 images, max 1 document, max 1 voice message
         if (imageFiles.length > 5) {
           res.status(400).json({ message: 'You can upload up to 5 images per message.' });
           return;
@@ -310,6 +311,18 @@ router.post(
 
         if (documentFiles.length > 1) {
           res.status(400).json({ message: 'You can only upload 1 document per message.' });
+          return;
+        }
+
+        if (audioFiles.length > 1) {
+          res.status(400).json({ message: 'You can only send 1 voice message at a time.' });
+          return;
+        }
+
+        if (audioFiles.length > 0 && (imageFiles.length > 0 || documentFiles.length > 0)) {
+          res.status(400).json({
+            message: 'Please send voice messages separately from other attachments.',
+          });
           return;
         }
 
@@ -363,7 +376,12 @@ router.post(
         // Save real message to MongoDB
         let message: IMessage;
         try {
-          const finalMessageType = imageFiles.length > 0 ? 'image' : 'document';
+          const finalMessageType =
+            audioFiles.length > 0
+              ? 'audio'
+              : imageFiles.length > 0
+                ? 'image'
+                : 'document';
           message = await createMessage({
             conversationId: id,
             senderId: userId,
@@ -491,11 +509,14 @@ router.get('/:id/attachments/:fileId', protect, async (req: AuthRequest, res: Re
     const encodedFilename = encodeURIComponent(filename);
 
     const isDownload = req.query.download === '1' || req.query.download === 'true';
-    const isInlineAllowed = mimeType.startsWith('image/') || mimeType === 'application/pdf';
+    const isInlineAllowed =
+      mimeType.startsWith('image/') ||
+      mimeType === 'application/pdf' ||
+      mimeType.startsWith('audio/');
     const dispositionType = isDownload || !isInlineAllowed ? 'attachment' : 'inline';
 
     res.setHeader('Content-Type', mimeType);
-    res.setHeader('Content-Length', gridFile.length);
+    res.setHeader('Accept-Ranges', 'bytes');
     res.setHeader(
       'Content-Disposition',
       `${dispositionType}; filename="${filename.replace(/["\r\n]/g, '_')}"; filename*=UTF-8''${encodedFilename}`
@@ -503,7 +524,34 @@ router.get('/:id/attachments/:fileId', protect, async (req: AuthRequest, res: Re
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Cache-Control', 'private, max-age=86400');
 
-    // 4. Stream binary from GridFS
+    // 4. Handle HTTP 206 Partial Content for audio / media Range requests
+    const rangeHeader = req.headers.range;
+    if (rangeHeader && !isDownload) {
+      const parts = rangeHeader.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : gridFile.length - 1;
+
+      if (!isNaN(start) && start >= 0 && start <= end && end < gridFile.length) {
+        const chunkSize = end - start + 1;
+        res.status(206);
+        res.setHeader('Content-Range', `bytes ${start}-${end}/${gridFile.length}`);
+        res.setHeader('Content-Length', chunkSize);
+
+        const rangeStream = openDownloadStreamFromGridFS(fileId, { start, end: end + 1 });
+        rangeStream.on('error', (streamErr) => {
+          console.error('Error streaming range attachment from GridFS:', streamErr);
+          if (!res.headersSent) {
+            res.status(500).json({ message: 'Error streaming attachment from storage.' });
+          }
+        });
+        rangeStream.pipe(res);
+        return;
+      }
+    }
+
+    res.setHeader('Content-Length', gridFile.length);
+
+    // 5. Stream full binary from GridFS
     const downloadStream = openDownloadStreamFromGridFS(fileId);
     downloadStream.on('error', (streamErr) => {
       console.error('Error streaming attachment from GridFS:', streamErr);

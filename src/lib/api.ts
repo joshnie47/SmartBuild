@@ -958,6 +958,10 @@ export async function apiGetContractorReviews(contractorId: string): Promise<{ r
   return request(`/reviews/contractor/${contractorId}`);
 }
 
+export async function apiGetProjectReviews(projectId: string): Promise<{ reviews: ApiReviewItem[] }> {
+  return request(`/reviews/project/${projectId}`);
+}
+
 // ── Notification APIs ────────────────────────────────────────────────────────
 export async function apiGetNotifications(): Promise<{ notifications: ApiNotificationItem[]; unreadCount: number }> {
   const token = getToken();
@@ -1115,17 +1119,57 @@ export async function apiAdminGetAiStats(): Promise<AdminAiStats> {
 
 export interface ApiDispute {
   _id: string;
-  projectId: { _id: string; title: string; category?: string; budget?: number; location?: string } | string;
+  projectId: { _id: string; title: string; category?: string; budget?: number; location?: string; status?: string } | string;
   clientId: { _id: string; fullName: string; email?: string; phone?: string } | string;
   contractorId: { _id: string; fullName: string; companyName?: string; email?: string; phone?: string } | string;
   raisedBy?: { _id: string; fullName: string; role?: string; email?: string } | string;
+  raisedByRole?: 'CLIENT' | 'CONTRACTOR';
   title?: string;
   issueCategory: string;
+  disputeType?: string;
   description: string;
   evidenceUrls?: string[];
-  status: 'OPEN' | 'UNDER_REVIEW' | 'RESOLVED' | 'REJECTED' | 'CLOSED' | 'PENDING' | 'DISMISSED';
+  requestedAction?: {
+    type: string;
+    amount?: number;
+    days?: number;
+    notes?: string;
+  };
+  expiresAt?: string;
+  proposedSettlement?: {
+    offeredBy: { _id: string; fullName: string; role?: string } | string;
+    offeredByRole: 'CLIENT' | 'CONTRACTOR';
+    offeredAt: string;
+    type: string;
+    amount?: number;
+    days?: number;
+    message: string;
+  };
+  rebuttal?: {
+    respondedBy: { _id: string; fullName: string; role?: string } | string;
+    respondedAt: string;
+    statement: string;
+    evidenceUrls?: string[];
+  };
+  autoResolutionDetails?: {
+    resolvedAt: string;
+    ruleApplied: string;
+    outcomeSummary: string;
+  };
+  status:
+    | 'OPEN'
+    | 'COMPROMISE_OFFERED'
+    | 'RESOLVED_MUTUALLY'
+    | 'RESOLVED_AUTO_TIMEOUT'
+    | 'RESOLVED_CLEAN_BREAK'
+    | 'UNDER_REVIEW'
+    | 'RESOLVED'
+    | 'REJECTED'
+    | 'CLOSED'
+    | 'PENDING'
+    | 'DISMISSED';
   priority?: 'Low' | 'Medium' | 'High' | 'Urgent';
-  resolutionOutcome?: 'RESOLVED_CLIENT_FAVOR' | 'RESOLVED_CONTRACTOR_FAVOR' | 'MUTUALLY_RESOLVED' | 'REJECTED' | string;
+  resolutionOutcome?: string;
   adminResolutionNote?: string;
   resolutionNotes?: string;
   resolvedBy?: { _id: string; fullName: string; email?: string } | string;
@@ -1138,7 +1182,14 @@ export async function apiCreateDispute(data: {
   projectId: string;
   title?: string;
   issueCategory: string;
+  disputeType?: string;
   description: string;
+  requestedAction?: {
+    type: string;
+    amount?: number;
+    days?: number;
+    notes?: string;
+  };
   evidenceUrls?: string[];
   priority?: string;
 }): Promise<{ message: string; dispute: ApiDispute }> {
@@ -1148,8 +1199,47 @@ export async function apiCreateDispute(data: {
   });
 }
 
+export async function apiGetMyDisputes(): Promise<{ disputes: ApiDispute[] }> {
+  return request('/reviews/disputes/my');
+}
+
 export async function apiGetProjectDisputes(projectId: string): Promise<{ disputes: ApiDispute[] }> {
   return request(`/reviews/disputes/project/${projectId}`);
+}
+
+export async function apiRespondToDispute(
+  disputeId: string,
+  data: {
+    action: 'ACCEPT' | 'PROPOSE_COMPROMISE' | 'REBUTTAL';
+    simulateRespondent?: boolean;
+    proposedSettlement?: {
+      type: string;
+      amount?: number;
+      days?: number;
+      message: string;
+    };
+    rebuttal?: {
+      statement: string;
+      evidenceUrls?: string[];
+    };
+  }
+): Promise<{ message: string; dispute: ApiDispute }> {
+  return request(`/reviews/disputes/${disputeId}/respond`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function apiAcceptCompromise(disputeId: string): Promise<{ message: string; dispute: ApiDispute }> {
+  return request(`/reviews/disputes/${disputeId}/accept-compromise`, {
+    method: 'POST',
+  });
+}
+
+export async function apiCleanBreak(disputeId: string): Promise<{ message: string; dispute: ApiDispute }> {
+  return request(`/reviews/disputes/${disputeId}/clean-break`, {
+    method: 'POST',
+  });
 }
 
 export async function apiGetAdminDisputes(): Promise<{ disputes: ApiDispute[] }> {

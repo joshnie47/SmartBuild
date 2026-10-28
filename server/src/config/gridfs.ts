@@ -33,7 +33,7 @@ export function sanitizeFilename(originalName: string): string {
   return sanitized || `attachment-${Date.now()}`;
 }
 
-export type AttachmentCategory = 'image' | 'document';
+export type AttachmentCategory = 'image' | 'document' | 'audio';
 
 export interface ValidatedAttachment {
   category: AttachmentCategory;
@@ -46,6 +46,7 @@ export interface ValidatedAttachment {
  *
  * Images: JPG, JPEG, PNG, WEBP
  * Documents: PDF, DOC, DOCX
+ * Audio / Voice: WEBM, OGG, MP3, WAV, M4A, AAC, MP4
  */
 export function validateAttachment(
   originalname: string,
@@ -132,9 +133,38 @@ export function validateAttachment(
     };
   }
 
+  // 3. Supported audio / voice formats
+  if (
+    ['.webm', '.ogg', '.oga', '.mp3', '.wav', '.m4a', '.aac'].includes(ext) ||
+    (ext === '.mp4' && mimetype.startsWith('audio/')) ||
+    mimetype.startsWith('audio/')
+  ) {
+    let audioMime = mimetype;
+    if (ext === '.webm' || (!audioMime || audioMime === 'application/octet-stream')) {
+      audioMime = ext === '.mp3' ? 'audio/mpeg' : ext === '.wav' ? 'audio/wav' : ext === '.ogg' || ext === '.oga' ? 'audio/ogg' : ext === '.m4a' || ext === '.aac' ? 'audio/mp4' : 'audio/webm';
+    } else if (ext === '.mp3') {
+      audioMime = 'audio/mpeg';
+    } else if (ext === '.wav') {
+      audioMime = 'audio/wav';
+    } else if (ext === '.ogg' || ext === '.oga') {
+      audioMime = 'audio/ogg';
+    } else if (ext === '.m4a' || ext === '.aac') {
+      audioMime = 'audio/mp4';
+    }
+
+    return {
+      valid: true,
+      validated: {
+        category: 'audio',
+        mimeType: audioMime,
+        safeFilename,
+      },
+    };
+  }
+
   return {
     valid: false,
-    error: `Unsupported file format "${ext || mimetype}". Supported formats are JPG, JPEG, PNG, WEBP, PDF, DOC, and DOCX.`,
+    error: `Unsupported file format "${ext || mimetype}". Supported formats are JPG, JPEG, PNG, WEBP, PDF, DOC, DOCX, and Audio (WEBM, MP3, WAV, OGG, M4A, AAC).`,
   };
 }
 
@@ -201,9 +231,10 @@ export async function getFileFromGridFS(fileId: mongoose.Types.ObjectId | string
  * Opens a readable download stream from GridFS.
  */
 export function openDownloadStreamFromGridFS(
-  fileId: mongoose.Types.ObjectId | string
+  fileId: mongoose.Types.ObjectId | string,
+  options?: { start?: number; end?: number }
 ): mongoose.mongo.GridFSBucketReadStream {
   const bucket = getChatGridFSBucket();
   const id = typeof fileId === 'string' ? new mongoose.Types.ObjectId(fileId) : fileId;
-  return bucket.openDownloadStream(id);
+  return bucket.openDownloadStream(id, options);
 }

@@ -166,6 +166,8 @@ export async function syncLastMessageOnDelete(conversationId: string): Promise<v
         previewText = count > 1 ? `📷 ${count} Images` : '📷 Image';
       } else if (latestMessage.messageType === 'document') {
         previewText = `📄 ${latestMessage.attachment?.filename || 'Document'}`;
+      } else if (latestMessage.messageType === 'audio') {
+        previewText = '🎤 Voice message';
       } else {
         previewText = 'Attachment';
       }

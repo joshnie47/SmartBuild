@@ -244,7 +244,7 @@ export function AdminDashboard({ onNavigate }: { onNavigate: (id: ScreenId) => v
       }
       setResolutionSuccessMsg('Dispute status updated to UNDER_REVIEW successfully.');
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error updating dispute status');
+      setResolutionError(err instanceof Error ? err.message : 'Error updating dispute status');
     } finally {
       setActionLoading(null);
     }
@@ -1644,14 +1644,26 @@ export function AdminDashboard({ onNavigate }: { onNavigate: (id: ScreenId) => v
                 </div>
               )}
 
-              {selectedDispute.status === 'RESOLVED' || selectedDispute.status === 'REJECTED' ? (
+              {selectedDispute.status === 'RESOLVED' ||
+              selectedDispute.status === 'REJECTED' ||
+              selectedDispute.status === 'RESOLVED_MUTUALLY' ||
+              selectedDispute.status === 'RESOLVED_AUTO_TIMEOUT' ||
+              selectedDispute.status === 'RESOLVED_CLEAN_BREAK' ? (
                 <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-4 space-y-2 text-xs">
                   <p className="font-bold text-emerald-900 flex items-center gap-2">
                     <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                    Dispute Arbitrated & Finalized
+                    {selectedDispute.status === 'RESOLVED_AUTO_TIMEOUT'
+                      ? '⏱️ 72-Hour Automated Default Rule Executed'
+                      : selectedDispute.status === 'RESOLVED_CLEAN_BREAK'
+                      ? '⚖️ 50/50 Clean Break Executed'
+                      : selectedDispute.status === 'RESOLVED_MUTUALLY'
+                      ? '🤝 Mutually Settled by Parties (Zero Admin Intervention)'
+                      : 'Dispute Arbitrated & Finalized'}
                   </p>
-                  <p className="text-emerald-800"><strong>Outcome:</strong> {selectedDispute.resolutionOutcome || 'Resolved'}</p>
-                  <p className="text-emerald-800"><strong>Admin Note:</strong> {selectedDispute.adminResolutionNote || selectedDispute.resolutionNotes || 'N/A'}</p>
+                  <p className="text-emerald-800"><strong>Outcome:</strong> {selectedDispute.resolutionOutcome || selectedDispute.status}</p>
+                  <p className="text-emerald-800">
+                    <strong>Audit Record:</strong> {selectedDispute.autoResolutionDetails?.ruleApplied || selectedDispute.adminResolutionNote || selectedDispute.resolutionNotes || 'Settled via 72h protocol.'}
+                  </p>
                   {selectedDispute.resolvedAt && (
                     <p className="text-[11px] text-emerald-700 italic">Resolved on: {new Date(selectedDispute.resolvedAt).toLocaleString()}</p>
                   )}

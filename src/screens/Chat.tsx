@@ -32,6 +32,8 @@ import {
 import { chatSocket, type ServerEvent } from '../lib/chatSocket';
 import { useLocale } from '../i18n/LocaleContext';
 import type { ScreenId } from '../types';
+import { VoiceMessagePlayer } from '../components/chat/VoiceMessagePlayer';
+import { VoiceRecorder } from '../components/chat/VoiceRecorder';
 
 const uuidv4 = () =>
   typeof crypto !== 'undefined' && crypto.randomUUID
@@ -94,6 +96,7 @@ export function Chat({
   const [isSending, setIsSending] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [voiceRecorderMode, setVoiceRecorderMode] = useState<'idle' | 'recording' | 'preview'>('idle');
 
   // ── Lightbox Image Modal ──
   const [lightboxImage, setLightboxImage] = useState<{ url: string; downloadUrl: string; filename: string } | null>(null);
@@ -289,6 +292,7 @@ export function Chat({
     if (prevActiveConvIdRef.current && prevActiveConvIdRef.current !== activeConvId) {
       console.log('[Chat Diagnostic] Switched conversations from', prevActiveConvIdRef.current, 'to', activeConvId, '-> clearing attachments');
       clearSelectedAttachments('user switched conversations');
+      setVoiceRecorderMode('idle');
     }
     prevActiveConvIdRef.current = activeConvId;
 
@@ -338,13 +342,23 @@ export function Chat({
             });
           }
           // Update conversation list's lastMessage
+          const previewText =
+            msg.body ||
+            (msg.messageType === 'audio'
+              ? '🎤 Voice message'
+              : msg.messageType === 'image'
+                ? '📷 Image'
+                : msg.messageType === 'document'
+                  ? `📄 ${msg.attachment?.filename || 'Document'}`
+                  : 'New message');
+
           setConversations((prev) =>
             prev.map((c) =>
               c._id === msg.conversationId
                 ? {
                   ...c,
                   lastMessage: {
-                    body: msg.body,
+                    body: previewText,
                     senderId: msg.senderId,
                     createdAt: msg.createdAt,
                   },
@@ -523,11 +537,13 @@ export function Chat({
         const count = result.message.attachments?.length || 1;
         const lastPreview =
           result.message.body ||
-          (result.message.messageType === 'image'
-            ? count > 1
-              ? `📷 ${count} Images`
-              : '📷 Image'
-            : `📄 ${result.message.attachment?.filename || 'Document'}`);
+          (result.message.messageType === 'audio'
+            ? '🎤 Voice message'
+            : result.message.messageType === 'image'
+              ? count > 1
+                ? `📷 ${count} Images`
+                : '📷 Image'
+              : `📄 ${result.message.attachment?.filename || 'Document'}`);
 
         setConversations((prev) =>
           prev.map((c) =>
@@ -584,6 +600,68 @@ export function Chat({
       isTypingRef.current = false;
     }
   }, [isSending, activeConvId, input, selectedAttachments, clearSelectedAttachments]);
+
+  // ─── Send Voice Message ──────────────────────────────────────────────────
+  const handleSendVoiceMessage = useCallback(
+    async (audioFile: File, _durationSec: number) => {
+      if (isSending || !activeConvId) return;
+
+      setIsSending(true);
+      setUploadError(null);
+      const clientMessageId = uuidv4();
+
+      try {
+        const result = await apiSendMessageWithAttachment(
+          activeConvId,
+          {
+            files: [audioFile],
+            body: '',
+            clientMessageId,
+          },
+          (percent) => setUploadProgress(percent)
+        );
+
+        setMessages((prev) => {
+          if (
+            prev.some(
+              (m) =>
+                m._id === result.message._id ||
+                m.clientMessageId === result.message.clientMessageId
+            )
+          ) {
+            return prev;
+          }
+          return [...prev, result.message];
+        });
+
+        setConversations((prev) =>
+          prev.map((c) =>
+            c._id === activeConvId
+              ? {
+                  ...c,
+                  lastMessage: {
+                    body: '🎤 Voice message',
+                    senderId: result.message.senderId,
+                    createdAt: result.message.createdAt,
+                  },
+                }
+              : c
+          )
+        );
+
+        setVoiceRecorderMode('idle');
+      } catch (err) {
+        console.error('Failed to send voice message:', err);
+        const errMsg =
+          err instanceof Error ? err.message : 'Failed to send voice message. Please try again.';
+        setUploadError(errMsg);
+      } finally {
+        setIsSending(false);
+        setUploadProgress(null);
+      }
+    },
+    [isSending, activeConvId]
+  );
 
   // ─── Typing indicator ────────────────────────────────────────────────────
   const handleInputChange = (value: string) => {
@@ -864,12 +942,23 @@ export function Chat({
                           ? [m.attachment]
                           : [];
 
-                    const isImageCategory =
-                      m.messageType === 'image' ||
+                    const isAudioCategory =
+                      m.messageType === 'audio' ||
                       msgAttachments.some((a) => {
                         const ext = `.${a.filename.split('.').pop()?.toLowerCase() || ''}`;
-                        return IMAGE_EXTS.includes(ext) || a.mimeType?.startsWith('image/');
+                        return (
+                          ['.webm', '.ogg', '.oga', '.mp3', '.wav', '.m4a', '.aac'].includes(ext) ||
+                          a.mimeType?.startsWith('audio/')
+                        );
                       });
+
+                    const isImageCategory =
+                      !isAudioCategory &&
+                      (m.messageType === 'image' ||
+                        msgAttachments.some((a) => {
+                          const ext = `.${a.filename.split('.').pop()?.toLowerCase() || ''}`;
+                          return IMAGE_EXTS.includes(ext) || a.mimeType?.startsWith('image/');
+                        }));
 
                     return (
                       <div
@@ -923,12 +1012,25 @@ export function Chat({
                         )}
 
                         <div
-                          className={`max-w-[85%] sm:max-w-[70%] rounded-2xl px-4 py-2.5 text-sm shadow-sm ${
+                          className={`max-w-[85%] sm:max-w-[70%] ${
+                            isAudioCategory ? 'min-w-[240px] sm:min-w-[280px]' : ''
+                          } rounded-2xl px-4 py-2.5 text-sm shadow-sm ${
                             isMine
                               ? 'rounded-br-sm bg-navy-600 text-white'
                               : 'rounded-bl-sm bg-white text-navy-700 ring-1 ring-gray-100'
                           }`}
                         >
+                          {/* Voice Message Rendering */}
+                          {msgAttachments.length > 0 && isAudioCategory && (
+                            <div className="mb-1">
+                              <VoiceMessagePlayer
+                                audioUrl={getAttachmentUrl(m.conversationId, msgAttachments[0].fileId)}
+                                downloadUrl={getAttachmentUrl(m.conversationId, msgAttachments[0].fileId, true)}
+                                isMine={isMine}
+                                messageId={m._id}
+                              />
+                            </div>
+                          )}
                           {/* Images Rendering (Grid for up to 5 images) */}
                           {msgAttachments.length > 0 && isImageCategory && (
                             <div className="mb-2">
@@ -1001,7 +1103,7 @@ export function Chat({
                           )}
 
                           {/* Document Rendering (Max 1 document) */}
-                          {msgAttachments.length > 0 && !isImageCategory && (
+                          {msgAttachments.length > 0 && !isImageCategory && !isAudioCategory && (
                             <div className="mb-2">
                               {msgAttachments.map((att, idx) => {
                                 const attUrl = getAttachmentUrl(m.conversationId, att.fileId);
@@ -1196,47 +1298,68 @@ export function Chat({
                     accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx"
                   />
 
-                  {/* Attachment paperclip button */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (fileInputRef.current) {
-                        fileInputRef.current.value = '';
-                        fileInputRef.current.click();
-                      }
-                    }}
-                    disabled={isSending}
-                    title="Attach image (JPG, PNG, WEBP) or document (PDF, DOC, DOCX)"
-                    className="rounded-lg p-2 text-gray-400 hover:bg-gray-50 hover:text-navy-600 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <Paperclip className="h-5 w-5" strokeWidth={1.75} />
-                  </button>
+                  {voiceRecorderMode !== 'idle' ? (
+                    <VoiceRecorder
+                      onSendVoice={handleSendVoiceMessage}
+                      onError={(err) => setUploadError(err)}
+                      onModeChange={setVoiceRecorderMode}
+                      disabled={isSending}
+                    />
+                  ) : (
+                    <>
+                      {/* Attachment paperclip button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (fileInputRef.current) {
+                            fileInputRef.current.value = '';
+                            fileInputRef.current.click();
+                          }
+                        }}
+                        disabled={isSending}
+                        title="Attach image (JPG, PNG, WEBP) or document (PDF, DOC, DOCX)"
+                        className="rounded-lg p-2 text-gray-400 hover:bg-gray-50 hover:text-navy-600 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <Paperclip className="h-5 w-5" strokeWidth={1.75} />
+                      </button>
 
-                  <input
-                    value={input}
-                    disabled={isSending}
-                    onChange={(e) => handleInputChange(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && send()}
-                    placeholder={
-                      selectedAttachments.length > 0
-                        ? 'Add an optional message...'
-                        : t('typeMessage')
-                    }
-                    className="flex-1 rounded-lg bg-gray-100 px-4 py-2.5 text-sm text-navy-700 placeholder-gray-400 outline-none focus:bg-gray-50 focus:ring-1 focus:ring-navy-200 disabled:opacity-75"
-                  />
+                      <input
+                        value={input}
+                        disabled={isSending}
+                        onChange={(e) => handleInputChange(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && send()}
+                        placeholder={
+                          selectedAttachments.length > 0
+                            ? 'Add an optional message...'
+                            : t('typeMessage')
+                        }
+                        className="flex-1 rounded-lg bg-gray-100 px-4 py-2.5 text-sm text-navy-700 placeholder-gray-400 outline-none focus:bg-gray-50 focus:ring-1 focus:ring-navy-200 disabled:opacity-75"
+                      />
 
-                  <button
-                    onClick={send}
-                    disabled={isSending || (!input.trim() && selectedAttachments.length === 0)}
-                    title="Send message"
-                    className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-400 text-navy-700 transition-colors hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {isSending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Send className="h-4 w-4" strokeWidth={2} />
-                    )}
-                  </button>
+                      {/* WhatsApp dynamic toggle: Send button if text/attachment exists, otherwise Voice Record button */}
+                      {input.trim() || selectedAttachments.length > 0 ? (
+                        <button
+                          onClick={send}
+                          disabled={isSending}
+                          title="Send message"
+                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-400 text-navy-700 transition-colors hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50 shadow-xs"
+                        >
+                          {isSending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Send className="h-4 w-4" strokeWidth={2} />
+                          )}
+                        </button>
+                      ) : (
+                        <VoiceRecorder
+                          onSendVoice={handleSendVoiceMessage}
+                          onError={(err) => setUploadError(err)}
+                          onModeChange={setVoiceRecorderMode}
+                          disabled={isSending}
+                        />
+                      )}
+                    </>
+                  )}
                 </div>
               </>
             )}
