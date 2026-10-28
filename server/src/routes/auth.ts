@@ -402,7 +402,11 @@ router.get('/me', protect, async (req: AuthRequest, res: Response) => {
       res.status(404).json({ message: 'User not found.' });
       return;
     }
-    res.status(200).json({ user });
+    const userObj = user.toObject();
+    if (userObj.profileImage && (userObj.profileImage.includes('220453') || userObj.profileImage.includes('774909'))) {
+      userObj.profileImage = '';
+    }
+    res.status(200).json({ user: userObj });
   } catch {
     res.status(500).json({ message: 'Server error.' });
   }

@@ -60,27 +60,42 @@ export function StarRating({ rating, size = 'sm' }: { rating: number; size?: 'sm
   );
 }
 
-const AVATAR_GRADIENTS = [
-  'bg-linear-to-tr from-blue-600 to-indigo-600 text-white',
-  'bg-linear-to-tr from-emerald-600 to-teal-600 text-white',
-  'bg-linear-to-tr from-violet-600 to-purple-600 text-white',
-  'bg-linear-to-tr from-amber-500 to-orange-600 text-white',
-  'bg-linear-to-tr from-rose-500 to-pink-600 text-white',
-  'bg-linear-to-tr from-cyan-600 to-blue-600 text-white',
-  'bg-linear-to-tr from-fuchsia-600 to-rose-600 text-white',
-  'bg-linear-to-tr from-teal-600 to-emerald-600 text-white',
-  'bg-linear-to-tr from-indigo-600 to-purple-700 text-white',
-  'bg-linear-to-tr from-sky-600 to-blue-700 text-white',
-];
+const LETTER_COLORS: Record<string, { bg: string; border: string }> = {
+  A: { bg: '#2563EB', border: '#1E3A8A' }, // Blue (Arun Kumar)
+  B: { bg: '#7C3AED', border: '#4C1D95' }, // Purple
+  C: { bg: '#059669', border: '#064E3B' }, // Emerald
+  D: { bg: '#D97706', border: '#78350F' }, // Amber
+  E: { bg: '#0D9488', border: '#134E4A' }, // Teal
+  F: { bg: '#E11D48', border: '#881337' }, // Rose
+  G: { bg: '#4F46E5', border: '#312E81' }, // Indigo
+  H: { bg: '#0891B2', border: '#164E63' }, // Cyan
+  I: { bg: '#9333EA', border: '#581C87' }, // Violet
+  J: { bg: '#EA580C', border: '#7C2D12' }, // Orange
+  K: { bg: '#1D4ED8', border: '#1E3A8A' }, // Deep Blue (Karthik Raja)
+  L: { bg: '#16A34A', border: '#14532D' }, // Green
+  M: { bg: '#4A7BB0', border: '#1E293B' }, // Slate Blue (Mohana - matches user reference)
+  N: { bg: '#6366F1', border: '#312E81' }, // Indigo
+  O: { bg: '#D97706', border: '#78350F' }, // Amber
+  P: { bg: '#DB2777', border: '#831843' }, // Pink
+  Q: { bg: '#7C3AED', border: '#4C1D95' }, // Purple
+  R: { bg: '#2563EB', border: '#1E3A8A' }, // Blue (Rajesh)
+  S: { bg: '#0D9488', border: '#134E4A' }, // Teal
+  T: { bg: '#0284C7', border: '#075985' }, // Sky
+  U: { bg: '#4F46E5', border: '#312E81' }, // Indigo
+  V: { bg: '#7C3AED', border: '#4C1D95' }, // Violet (Vishnu)
+  W: { bg: '#059669', border: '#064E3B' }, // Emerald
+  X: { bg: '#EA580C', border: '#7C2D12' }, // Orange
+  Y: { bg: '#DB2777', border: '#831843' }, // Pink
+  Z: { bg: '#475569', border: '#0F172A' }, // Slate
+};
 
-export function getAvatarColor(name: string): string {
-  if (!name) return 'bg-navy-700 text-white';
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+export function getAvatarColor(name: string): { bg: string; border: string } {
+  const clean = (name || '').trim().toUpperCase();
+  const firstChar = clean ? clean[0] : 'M';
+  if (LETTER_COLORS[firstChar]) {
+    return LETTER_COLORS[firstChar];
   }
-  const index = Math.abs(hash) % AVATAR_GRADIENTS.length;
-  return AVATAR_GRADIENTS[index];
+  return { bg: '#4A7BB0', border: '#1E293B' };
 }
 
 export function Avatar({
@@ -100,15 +115,15 @@ export function Avatar({
       : size === 'sm'
       ? 'h-8 w-8 text-xs'
       : size === 'lg'
-      ? 'h-12 w-12 text-base'
+      ? 'h-12 w-12 text-lg'
       : size === 'xl'
-      ? 'h-14 w-14 text-lg font-bold'
+      ? 'h-14 w-14 text-2xl'
       : size === '2xl'
-      ? 'h-20 w-20 text-2xl font-bold'
-      : 'h-10 w-10 text-sm font-semibold';
+      ? 'h-20 w-20 text-3xl'
+      : 'h-10 w-10 text-base';
 
   const cleanAlt = (alt || '').trim();
-  const initial = cleanAlt ? cleanAlt[0].toUpperCase() : 'U';
+  const initial = cleanAlt ? cleanAlt[0].toUpperCase() : 'M';
   const isDefaultStockPhoto = src
     ? src.includes('220453') ||
       src.includes('pexels-photo-220453') ||
@@ -124,18 +139,23 @@ export function Avatar({
         src={src}
         alt={cleanAlt}
         onError={() => setImgError(true)}
-        className={`${sz} rounded-full object-cover shadow-xs border border-slate-200/80 shrink-0 ${className}`}
+        className={`${sz} rounded-full object-cover shadow-sm border border-slate-200/80 shrink-0 ${className}`}
       />
     );
   }
 
-  const colorClass = getAvatarColor(cleanAlt);
+  const colorInfo = getAvatarColor(cleanAlt);
   return (
     <div
-      className={`${sz} flex shrink-0 items-center justify-center rounded-full shadow-xs border border-white/20 select-none ${colorClass} ${className}`}
+      style={{
+        backgroundColor: colorInfo.bg,
+        borderColor: colorInfo.border,
+        color: '#FFFFFF',
+      }}
+      className={`${sz} flex shrink-0 items-center justify-center rounded-full border-2 shadow-sm font-serif font-bold text-white select-none leading-none ${className}`}
       title={cleanAlt}
     >
-      {initial}
+      <span className="flex items-center justify-center leading-none select-none">{initial}</span>
     </div>
   );
 }
